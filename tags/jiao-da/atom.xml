@@ -1,0 +1,933 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+	<title>IanChen - 交大</title>
+	<link href="https://ianchen.tw/tags/jiao-da/atom.xml" rel="self" type="application/atom+xml"/>
+  <link href="https://ianchen.tw"/>
+	<generator uri="https://www.getzola.org/">Zola</generator>
+	<updated>2020-03-06T00:00:00+00:00</updated>
+	<id>https://ianchen.tw/tags/jiao-da/atom.xml</id>
+	<entry xml:lang="en">
+		<title>An overview of LibraryOS and Unikernels</title>
+		<published>2020-03-06T00:00:00+00:00</published>
+		<updated>2020-03-06T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/libos-and-unikernels/" type="text/html"/>
+		<id>https://ianchen.tw/posts/libos-and-unikernels/</id>
+		<content type="html">&lt;p&gt;Cornell CS6410 - Advance Systems 是最近幾個月找系統領域經典論文的一個來源，幾個星期前翻到了 1995 年的論文 - Exokernel，&lt;&#x2F;p&gt;
+&lt;p&gt;比起實作內容，我更著重在這些技術被使用的場景跟發展發向分析。&lt;&#x2F;p&gt;
+&lt;p&gt;這篇內容是我在實驗室會議上報告時的草稿，也是我第一次嘗試梳理單一題目跨十幾年來的的發展狀況。
+簡單來說，這是我在兩週內梳理各篇論文後對於 Librariy OS 的理解。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;libos-and-unikernels&#x2F;front_img_unikernels-arch.png&quot; alt=&quot;Architecture of Unikerels&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;&lt;h2 id=&quot;ti-qian-cheng-qing&quot;&gt;提前澄清&lt;&#x2F;h2&gt;
+&lt;p&gt;Unikernels 不是OS, 也不是kernel，而是一種系統的統稱。&lt;&#x2F;p&gt;
+&lt;p&gt;Unikernels 是一種 single address space 系統。在這種系統裡面，沒有 user 跟 kernel space 的區別，使用者可以碰到過去所定義的 kernel 區段，但整個系統上面只存在單一使用者，可以想做 user 就是 kernel。系統的組件不再是撰寫程式時自動假設，而是要明顯的 &lt;code&gt;#include&lt;&#x2F;code&gt; 才能夠使用。
+可以從這裡看出來，這是一種特殊的系統，只要應用程式沒有用到檔案系統，打包後的系統甚至不需要檔案系統也可以使正常運作。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;single-addr-space.jpg&quot; alt=&quot;Single Address Space&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;但為什麼要這樣做，為什麼有東西會設計成這樣？
+原因是這種系統是編譯過後的產物，整個系統的目的就只有一個 - 成功運行使用者最開始指定的那支程式。有點像是軟體的 SoC，把一切都打包進同一塊區域。&lt;&#x2F;p&gt;
+&lt;p&gt;可先看系統架構圖&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;unikernels-arch.png&quot; alt=&quot;Architecture of Unikerels&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xing-qi-huan-jing-ying-yong-chang-jing&quot;&gt;興起環境(應用場景)&lt;&#x2F;h2&gt;
+&lt;p&gt;想要談這種系統，就要先稍微提一下他的誕生環境:&lt;&#x2F;p&gt;
+&lt;p&gt;如果你想架網站或服務，通常方法是到 AWS 或是 GCP 上租借。近幾年來，不管是因為購買硬體裝置佔位子或是不符合成本效益、使用者不想要自行管理伺服器，又或是想達到快速部署的效果，大部分的服務都漸漸轉向現有的雲端業務廠商。&lt;&#x2F;p&gt;
+&lt;p&gt;這些雲端廠商的主要優點是他們擁有大量運算資源跟使用者，可以透過虛擬化技術來確實的利用每一分硬體資源，高效率的經濟可以讓他們的硬體成本遠低於一般使用者。&lt;&#x2F;p&gt;
+&lt;p&gt;但就大部分使用情況來說，使用者租借伺服器大多只是為了架設單一服務，也就是說，在他們的虛擬化系統中往往只有一支程式在運行。試想，這種為了單一服務而部署整個 Linux kernel 的情況並不太有效率，首先，因為 Linux Kernel 的設計是為了支援世界上各式各樣的運算裝置所產生，正常程式根本用不到所有 Kernel 中的原始碼，好比說一個 TCP echo Server 根本不需要去理解各式各樣的 file server 架構。再來，Kernel 是為了多使用者而設計，當我們只有單一 process 的時候，是真的需要使用到這些針對多重使用者管理的程式碼嗎？
+現今這種直接部署整台機器的想法實際上是多佔用不少硬碟跟記憶體資源，而缺點也會隨著業務量的增加而逐漸明顯，這種雲端業務不是不能 scale，而是會 scale 的不好。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yuan-yuan-yu-zhu-yao-xiang-fa&quot;&gt;淵源與主要想法&lt;&#x2F;h2&gt;
+&lt;p&gt;回頭談談歷史:&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;exokernel&quot;&gt;Exokernel&lt;&#x2F;h3&gt;
+&lt;p&gt;在 Kernel 設計中，一直以來都是在 Microkernel 跟 Monolithic kernel 兩者之間徘徊，但 1995 年跑出來了另外一種不同維度的嘗試 --  &lt;code&gt;Exokernel&lt;&#x2F;code&gt;。&lt;code&gt;exo-&lt;&#x2F;code&gt; 一詞的意思是外面，基本上來說各位可以想成跟超人一樣內褲外穿，主要是嘗試將過去人認為作業系統要做的大部分事情搬移到 userspace 之中，讓真正的 kernel 只提供運行電腦所需的最小介面。&lt;&#x2F;p&gt;
+&lt;p&gt;你可以把電腦資源想像成一個房子，在這個情況下 &lt;code&gt;Exokernel&lt;&#x2F;code&gt; 扮演著守門人，使用者拿著身份憑證進入房間之後就可以自由使用資源，只不過使用者如果不跟 exokernel 合作，exokernel 就會直接跑進房子內讓使用者掃地出門。&lt;&#x2F;p&gt;
+&lt;p&gt;這種 Kernel 有什麼好處？最簡單的好處是因為大部分的程式碼都在 userspace 執行，使用者的程式執行時 CPU 可以不用頻繁在 userspace 跟 kernelspace 間來回切換，大幅度減少 context switch 頻率來換取大幅效能增進。第二個好處，也就是 Exokernel 的主要訴求 - 希望使用者可以不被傳統 Kernel 限制，自由控制底層行為來換取極端效能優化 - &lt;strong&gt;做事就要讓讓專家來，只有應用程式開發者才有那些 Know-how&lt;&#x2F;strong&gt;，一個作業系統使用的schedular，filesystem ，memory cache 可能跟一個高效能導向的雲端資料庫程式不太一樣，何不讓程式自行控制就好？&lt;&#x2F;p&gt;
+&lt;p&gt;但壞處呢？ 基本上在這種情況下使用者要知道怎麼操作底層物件，一般來說是透過一種叫做 Library OS 的函式庫。唯一的問題就是這類 OS 的針對性過高，不缺乏 (也不應該有) 泛型的抽象界面讓他的程式碼難以重用。成也低階，敗也低階，最後讓 exokernel 沒辦法成功改變世界。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;libos&quot;&gt;LibOS&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;LibOS 相關專案&lt;&#x2F;li&gt;
+&lt;li&gt;library OS 的沒落&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Exokernel 離開了， Library
+隨著現代 VMM (Virtual Machine Monitor) 的誕生，LibOS 就慢慢從人間淡出腳步，因為那種下放 OS 到 userspace 換取效能增進的方式沒辦法克服他本身的低兼容性問題。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;libos-de-di-er-ci-chang-shi&quot;&gt;LibOS 的第二次嘗試&lt;&#x2F;h3&gt;
+&lt;p&gt;時隔多年後，2011 時微軟發出了這麼一篇論文 - &lt;a href=&quot;https:&#x2F;&#x2F;www.microsoft.com&#x2F;en-us&#x2F;research&#x2F;wp-content&#x2F;uploads&#x2F;2016&#x2F;02&#x2F;asplos2011-drawbridge.pdf&quot;&gt;&lt;em&gt;Rethinking the Library OS form the Top Down&lt;&#x2F;em&gt;&lt;&#x2F;a&gt;，微軟在當時很實驗性的將 windows 7 重構出一個 Library OS 的版本，名字就叫做 Drawbridge，但這個 Library OS的設計卻不是放在過往 exokernel 強調的高效能導向，在 Drawbridge 的設計中，團隊嘗試解構出 windows 7 的核心功能，只向 Drawbridge 開出執行 win7 最必要的界面。 library OS 的這次的設計角度則站在核心安全性以及該如何透過把不必要的功能下放到 userspace 來因應快速迭代的 OS 設計上。&lt;&#x2F;p&gt;
+&lt;p&gt;Drawbridge 帶來了什麼影響？除了一個可以成功跑起 windows7 原生的 excel, powerpoint 與瀏覽器的 LibOS 之外，Drawbridge 因為只包含了使用者相關的程式碼，他們成功產生出一個記憶體跟硬碟用量極小的 kernel，在論文中提到，在當時的 win7 之中如果要開一個 win7 的VM, 需要大約 5G 的硬碟跟 512MB 的 RAM 空間，但 Drawbridge 只需要 64MB 硬碟空間跟 16MB 的記憶體用量。 算是開啟了虛擬映像檔極小化的可能性。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;libos-dai-zhu-yun-duan-yun-suan-zhong-xin-dan-sheng-unikernels&quot;&gt;LibOS 帶著雲端運算重新誕生 - Unikernels&lt;&#x2F;h2&gt;
+&lt;p&gt;隨著 2013 年提出了 unikernels ，library OS 又再次被提了出來，而這次 LibOS 又再被瞄準的機會則是雲計算。&lt;&#x2F;p&gt;
+&lt;p&gt;對於雲端計算 (AWS, GCP) 廠商來說，技術上最大化利潤的方式是盡可能在同一台硬體電腦中同時執行越多虛擬機越好，簡單來說，就是降低虛擬機 image 佔用的硬碟與記憶體資源。&lt;&#x2F;p&gt;
+&lt;p&gt;回想一下 LibOS 的特性，就是極小化 image 大小跟記憶體資源，原因是這些 image 只會包含需要的東西，而不是跟一般的 VM 一樣需要承裝整個 kernel code。&lt;&#x2F;p&gt;
+&lt;p&gt;而且，在新的雲端環境之下，被虛擬出來的作業系統原本要做的工作已經被雲端環境搶走，再做出過往包山包海的行為無疑是一種矛盾 — 過度的疊床架屋會導致效能低落。&lt;&#x2F;p&gt;
+&lt;p&gt;第一個被奪走的是抽象化的裝置介面：雲端環境的開給作業系統的“硬體接口”已經是有單一標準，被虛擬化過的介面。第二被奪走的是記憶體保護跟使用者切換功能：在 micro-service 的浪潮興起後，大部分被部署在雲端的系統都只會有單一使用者，一支程式在運作，從根本上的來說，這些被虛擬化出來的作業系統唯一要保護的只有自已的 address space，但問題是這個虛擬化機器如果壞掉只會有一個人在乎，就是那個唯一在使用虛擬機的 App 本身。&lt;&#x2F;p&gt;
+&lt;p&gt;Unikernel 的概念就是從這裡切入的，當我們在一個抽象化的環境之下，雲端廠商在乎的應該是一個最小化硬體配置的系統，盡可能地乾淨，省資源。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Unikernels are specialized, single-address-space machine images constructed by using library operating systems.”&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;Unikernels 是一種只有單一 address space 的系統，使用者程式把針對 unikernl 設計的 LibOS 當作函式庫引入，然後透過他們的技術編譯出一個可以自己在硬體上或是 Hypervisor 中開機並且正常運作的系統，而這個系統的為一目的就是運作那個被打包的 App 本身。&lt;&#x2F;p&gt;
+&lt;p&gt;由於整個系統是用函式庫的方式引入，編譯器可以直接靜態分析並只打包出使用者程式運作時所需要的組建。這樣在部署的時候只會有必要的程式碼，也只會跑必要的程式碼。&lt;&#x2F;p&gt;
+&lt;p&gt;這個系統跟過去的 Library OS 基本上相似的，第一個是 library  OS 下面ㄧ樣會墊一層介面，在以前的話那層介面是 exokernel，而在 exokernel 之中現在那層介面則是 hypervisor (又或是 docker container，docker 有針對這個技術進行開發, [&lt;a href=&quot;https:&#x2F;&#x2F;school.soft-arch.net&#x2F;blog&#x2F;2437&#x2F;docker-unikernel&quot;&gt;註1&lt;&#x2F;a&gt;], [&lt;a href=&quot;https:&#x2F;&#x2F;containerjournal.com&#x2F;features&#x2F;unikernels-another-name-linuxkit-dockers-long-term-strategy&#x2F;&quot;&gt;註2&lt;&#x2F;a&gt;])。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;you-shi-mo-hao-chu&quot;&gt;有什麼好處&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;最小化  attack surface ，沒有多餘侵入點&lt;&#x2F;li&gt;
+&lt;li&gt;應該拿不到 shell 指令，因為根本沒用到，所以拿不到權限&lt;&#x2F;li&gt;
+&lt;li&gt;沒辦法讓機器去執行在編譯時沒包入的程式碼，機器不會被侵入者去做其他用途&lt;&#x2F;li&gt;
+&lt;li&gt;沒有 user &#x2F;kernel space的問題 (根本上的效能提升)&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;在論文中他們有提到，這種實作選擇也可以大幅提高程式安全性，因為只有必要的東西，部署的服務有時候根本連 shell 都沒有，一個天生拿不到 shell 權限的系統，基本上能少掉不少隱憂。再加上他們的實作方式，他們可以在系統中確保這個程式只能執行最一開始被編譯的程式碼，這樣也能讓入侵者沒辦法自由運行自己撰寫的程式。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;unikernels-lun-wen-zhong-de-shi-jian-cheng-guo&quot;&gt;Unikernels 論文中的實踐成果&lt;&#x2F;h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Despite this shift from applications running on multi-user operating systems to provisioning many instances of single-purpose VMs, there is little actual specialisation that occurs in the image that is deployed to the cloud. &lt;&#x2F;p&gt;
+&lt;p&gt;We take an extreme position on specialisation, treating the ﬁnal VM image as a single purpose appliance rather than a general-purpose system by stripping away functionality at compile-time.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The entire software stack of system libraries, language runtime, and applications is compiled into a single bootable VM image that runs directly on a standard hypervisor&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;超低 boot time&lt;&#x2F;li&gt;
+&lt;li&gt;超小 image size : 個位數 MB&lt;&#x2F;li&gt;
+&lt;li&gt;超小 記憶體用量:&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;唯一的缺陷就是指支援單一 process，但在後來的論文顯示如果要實踐 multiple processes 的話可以改採用多個 image 來進行協作。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;why-aren-t-unikernels-more-popular&quot;&gt;Why aren’t unikernels more popular&lt;&#x2F;h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The root of the problem lies in the way that unikernels have been developed. As of today, the creation of a new unikernel followed one of two approaches: a clean slate approach where the kernel is largely built from scratch, or a strip down approach where an existing kernel codebase is stripped of functionality deemed unnecessary for the unikernel. With a clean slate approach, unikernel designers have full control over the language and methodology used to construct the kernel. With such freedom, the resulting implementation can be extremely specialized and limited to particular class of application (for example, MirageOS only supports applications written in OCaml [21]). Implementations in clean-slate unikernels can also be finely-tuned for performance and provide efficient, low-level interfaces that applications can be directly written for.&lt;&#x2F;p&gt;
+&lt;p&gt;Unikernels such as OSv [17], IncludeOS [9], and EbbRT [29] attempt to balance high-performing components together with a C-standard runtime and partial support for common POSIX-like interfaces. The problem is that clean-slate unikernels cannot (and should not) hope to support the same myriad of interfaces and options provided by a general purpose kernel, at least not without abandoning or obfuscating the efficient pathways and finely-tuned implementation that make a clean slate approach attractive to begin with.&lt;&#x2F;p&gt;
+&lt;p&gt;With limited support for legacy software, porting and supporting existing applications on a clean slate unikernel becomes a non-trivial endeavour, and may be quickly deemed “not worth the effort.”&lt;&#x2F;p&gt;
+&lt;p&gt;-- &lt;strong&gt;&lt;em&gt;Unikernels: The Next Stage of Linux’s Dominance&lt;&#x2F;em&gt;&lt;&#x2F;strong&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;Unikernels 之所以沒有被廣泛使用的主因是來自於底層 LibOS 被建立的方式 - 要不使用 clean slate (重新打造 OS ) 就是直接修改現有 OS 來實做 （比如說移除掉不少組件）&lt;&#x2F;p&gt;
+&lt;p&gt;第一種重新打造 OS 是 Unikernels 當初這篇論文所採用的方式， MirageOS 是使用 OCaml 語言撰寫 (跟 Xen ) 相同，基本上只支援使用 OCaml 撰寫的程式，優點是根據他的實踐方法會具有高度安全性，還有針對這種雲端架構所撰寫的 OS 具有高度效能，這類程式沒有理由去管理向後兼容性，他的目標就只是打造出一個超高安全性跟效能的未來雲端標準。有些人覺得太誇張，所以會打造出兼容 POSIX api，又或是標榜可以直接與 Linux 程式兼容，但問題是這些API過於廣泛，會讓新打造出來的 OS 實作缺乏針對性，進而產生效能折扣而讓其他人失去想要用他們的理由 (比如說只能縮小記憶體用量，但並非使用被廣泛信賴的 Linux Kernel ，會讓人不想使用)。&lt;&#x2F;p&gt;
+&lt;p&gt;如果想要完全享受到 Unikernel  的好處，基本上就是要採用高度客製化的 LibOS，雖然如 Mirage OS 已經被 Linux foundation 納入旗下，但採用這些東西代表要對現在使用的軟體跟OS對接的全部改寫，包含專案相依賴到的套件也必須重寫，過大的成本將高階程式開發者從 Unikernel 中推開。&lt;&#x2F;p&gt;
+&lt;p&gt;第二種打造的方法是直接拿現有 Linux Kernel 進行修改，但這種問題是通常就只是拿了一次就在也沒辦法跟上 Kernel 的進展，還需要額外人力去不斷 merge kernel 進來，在長期來看是吃力不討好的事情。&lt;&#x2F;p&gt;
+&lt;p&gt;不管如何，這類高移植成本的科技會大幅度限縮採用 Unikernels 的用戶群，只剩下需要高安全性&#x2F;高效能&#x2F;大流量服務的開發商，又或是提供的服務本身就已經很底層，不需要重寫太多相依 Library 的客戶。&lt;&#x2F;p&gt;
+&lt;p&gt;這些東西讓 Unikernels 在實務上最可能採用的客戶就是網路通訊商。比如說 &lt;a href=&quot;https:&#x2F;&#x2F;www.fiercewireless.com&#x2F;wireless&#x2F;verizon-reports-major-milestone-virtualization-path&quot;&gt;Verizon&lt;&#x2F;a&gt; 近幾年大幅度發展 5G 架構服務，大量使用 VM 來部屬他們的伺服器。提供通訊層級服務代表不用改寫太多 stack，Unikernels 帶來的安全性跟高效率儲存空間(RAM) 讓他們有理由，也有足夠成本效益去開發 Unikernels。 這樣也才讓 Unikernels 很難以打入主流。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xin-de-xi-wang&quot;&gt;新的希望&lt;&#x2F;h2&gt;
+&lt;p&gt;Redhat 在  2018 公開了一篇文章，希望可以將 Linux kernel 當作 LibOS 來製作 Unikernl，這個已經有一個初步的結果，而且登上了 HotOS 2019，主要想法是在 Glibc 準備 syscall 之前墊上一層靜態函式庫，&lt;&#x2F;p&gt;
+&lt;p&gt;修改 linux boot 跟 thread 控管的程式碼，據他們宣稱大約修改 30 多行 linux 程式碼就可以完成，這種幅度的改動是最可能被融合進入 linux main ，我們可以找到目前的發展方向。&lt;&#x2F;p&gt;
+&lt;p&gt;不過這當然還不算是一個可以的研究成果，但或許是標誌著 Unikernel，或是雲端化科技會慢慢變成下一步 Linux 的發展方向之一。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jing-zheng-pin-bi-jiao&quot;&gt;競爭品比較&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;docker 的關係：&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;雖然 Unikernels 會是一種專門為雲端而產生的科技，大家可能會想到最近比較熱門的 docker (Container) 或許潛在的競爭者。是的，但有趣的事情是 docker 他們已經買下了 Unikernel Systems 。Docker 正在致力於將 Unikernel 的技術整合進自己的生態系之下。&lt;a href=&quot;http:&#x2F;&#x2F;unikernel.com&#x2F;&quot;&gt;註 - Unikernel joins Docker - 21. Jan. 2016&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;Docker 中的競爭者: Alpine linux：&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Alpine 是一個 linux 的輕量實踐版本，標榜由於 kernel 很小，所以生成的 image  會極小化，是目前使用 docker container 的用戶在縮小 image 時會參考的 base image 選項。&lt;&#x2F;p&gt;
+&lt;p&gt;所以跟使用 Alpine linux 的 docker 相比，Unikernel 的優勢只會剩下靜態檢查的安全性跟可以移除用不到的科技。&lt;&#x2F;p&gt;
+&lt;p&gt;我認為 Unikernel System (新創) 之所以會被 Docker 吃下來的一個原因也是 Alpine linux 存在所給予的壓力。但這兩者並不是相斥的科技，所以當 Unikernels 被融入 Linux 後或許 Alpine linux 也可以結合 Unikernel 的想法讓他更安全，更小化。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;User Mode Linux (UML)&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;UserMode Linux 的主要用途仍在開發 Linux 核心組件之上，而不是用於產品部署，從核心發展方向上並沒有與 unikernel 相互競爭。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;userful-links&quot;&gt;Userful links&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;next.redhat.com&#x2F;2018&#x2F;11&#x2F;14&#x2F;ukl-a-unikernel-based-on-linux&#x2F;&quot;&gt;UKL: A Unikernel Based on Linux&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;分析 unikernel 為什麼目前還沒被廣泛使用&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetic&#x2F;unikernels&quot;&gt;cetic&#x2F;unikernels&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;很詳細的介紹 unikernel 的起源、用途，以及簡單分析&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;(Nov 2015) &lt;a href=&quot;http:&#x2F;&#x2F;northox.github.io&#x2F;qubes-rumprun&#x2F;&quot;&gt;Enhancing Qubes with Rumprun unikernels&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;lun-wen&quot;&gt;論文&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;(2019) &lt;a href=&quot;https:&#x2F;&#x2F;dl.acm.org&#x2F;citation.cfm?id=3321445&quot;&gt;Unikernels: The Next Stage of Linux&#x27;s Dominance&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;(2013) &lt;a href=&quot;https:&#x2F;&#x2F;dl.acm.org&#x2F;citation.cfm?id=2451167&quot;&gt;Unikernels: library operating systems for the cloud&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;(2011) &lt;a href=&quot;https:&#x2F;&#x2F;www.microsoft.com&#x2F;en-us&#x2F;research&#x2F;wp-content&#x2F;uploads&#x2F;2016&#x2F;02&#x2F;asplos2011-drawbridge.pdf&quot;&gt;Rethinking the Library OS from the Top Down&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;other-topics&quot;&gt;Other topics&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=9846452&quot;&gt;What&#x27;s the difference between unikernel and exokernel?&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Github 編譯器課程改革 - 我在交大資工</title>
+		<published>2020-01-17T00:00:00+00:00</published>
+		<updated>2020-01-17T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2020-compiler-redesign-in-nctu/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2020-compiler-redesign-in-nctu/</id>
+		<content type="html">&lt;p&gt;資工系大學四年，我最討厭的就是寫作業。&lt;&#x2F;p&gt;
+&lt;p&gt;討厭寫了一個專案，設計出一個好架構之後助教卻說把所有程式碼放進同一個檔案。
+&lt;&#x2F;br&gt;討厭那些不負責任的作業說明，總是什麼都沒寫卻要求學生做一堆東西。
+&lt;&#x2F;br&gt;討厭總是把所有人成績公告出來，一點都不尊重學生的隱私權。
+&lt;&#x2F;br&gt;討厭繳交作業的前一刻學校的 e3 系統在維修，不然就是期末考期間一次次的當機。
+&lt;&#x2F;br&gt;討厭沒有美感的課程網站設計。&lt;&#x2F;p&gt;
+&lt;p&gt;但我更討厭當個只會抱怨的廢物。
+&lt;&#x2F;br&gt;所以我決定做個嘗試，把這些問題通通解決。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2020-compiler-redesign-in-nctu&#x2F;landing-img.jpg&quot; alt=&quot;course&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;2019.6 - 2020.1&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xin-de&quot;&gt;心得&lt;&#x2F;h2&gt;
+&lt;p&gt;2019 年 6 月初我向老師提出了大學部編譯器課程未來作業改使用 Git 繳交的想法，目標是讓同學能夠脫離原始時代開發方式，開始使用版本控管，並且以寫專案的態度來完成作業，藉此踏入真正有用的程式開發階段。&lt;&#x2F;p&gt;
+&lt;p&gt;恰巧同時我也知道益揚在修完大學部編譯器後也開始研究該如何修改作業樣貌，改善課程品質。在一邊改革一邊跑課程的情況之下，也勉強撐過第一學期，於是在學期結束前做個完整回顧。&lt;&#x2F;p&gt;
+&lt;p&gt;這個學期的經驗感覺起來像小創業的感覺，主要是因為課程進度是隨著時間不斷推進，往往沒有充裕時間能依心中順序做想做的事情，也沒辦法把一切完善成心中的極致模樣。出於時間緊迫，我每星期都需要重新檢視並設定我的計畫，甚至需要因為時程做出一些妥協，比如說放棄撰寫某些教學文件，又或是除掉某些想做的功能。&lt;&#x2F;p&gt;
+&lt;p&gt;過去的我可能會覺得妥協是件萬萬不可的壞事，但在這學期我卻常發現 -- 正因為面臨妥協，我才被逼著回頭省視目標事物的本質，做完思考後再對我的工作進行剪裁，把心思專注在最重要的體驗之上，或許就是因此才能讓我們的課程得以更進一步，變成更有用的東西。&lt;&#x2F;p&gt;
+&lt;p&gt;在這學期的繁忙之下，我養成了個有趣習慣：每天用筆在紙上寫下我的代辦清單，即便我大部分的筆記也透過 ipad 跟 apple pencil 電子化，我仍舊認為用一張 A4 空白紙規劃每天行程是件無法取代的事情，在質感而言，紙本的粗糙感更勝於玻璃螢幕，除此之外，手寫字之於我更像是種每日儀式，帶來的安心感能取代一切。&lt;&#x2F;p&gt;
+&lt;p&gt;最後，我認為在這學期中遇見的所有問題都是人的問題，一件事情該怎麼做從來就沒有個標準解法，以人的角度出發，才能真正做出一件有人想用的東西。&lt;&#x2F;p&gt;
+&lt;p&gt;謝謝這學期 SSLab 其他碩一的小夥伴：&lt;code&gt;宇勝&lt;&#x2F;code&gt;，&lt;code&gt;益揚&lt;&#x2F;code&gt;，還有 &lt;code&gt;我自己&lt;&#x2F;code&gt;，謝謝逸平老師給我這個機會去嘗試做我想做的事情，也謝謝這學期的每位修課生。&lt;&#x2F;p&gt;
+&lt;p&gt;雖然我們在課程上花的大部分心力其實學生都是看不見的，但我想一個有能力的人不能只是讓自己窮忙，而是要在有想法之下做出有意義之事。&lt;&#x2F;p&gt;
+&lt;p&gt;附上今年修訂自己履歷表時硬寫上的一句話：&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I believe compassion is the most valuable trait in a man. By practicing this he could build things that truly motivate people.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;這學期的核心目標是提升交大資工編譯器課程的修課體驗，體驗有很多種，不過我認為最簡單的幾點就是一開始提到的：明確，具有教學意義的作業說明，尊重同學的隱私權，穩定可靠的系統，跟具有設計感的網站設計，還有學生跟助教間的高互動性。不管這學期做了些什麼，都是以此作為目標進行優化。&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;p&gt;以下大概紀錄了這學期做了些什麼東西&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ke-cheng-wang-zhan&quot;&gt;課程網站&lt;&#x2F;h2&gt;
+&lt;p&gt;六月初踏出的第一個嘗試是策劃新課程網站，有趣的是網站在真正做出來前都沒跟老師正式提到過。
+最初的想法是網站不僅要好看，也要對這門課程提供足夠的資訊。&lt;&#x2F;p&gt;
+&lt;p&gt;一個網站，有什麼困難的呢？&lt;&#x2F;p&gt;
+&lt;p&gt;我也這麼覺得，不過我想要有個不用管理伺服器的網站，又同時能夠管理課程講義的存取權，好像就沒有這麼直覺了。最後我選擇了 github pages + hugo 來架站。&lt;&#x2F;p&gt;
+&lt;p&gt;其實架設網站的過程並沒有寫起來這麼順利，因為只有我一人在開發，除了網站功能外我也必須同時撰寫網站內容，但因為一開始想在其中放入過多功能，讓網站拖到開學前都沒搞好，差點讓架站之路失敗，最後我決定暫時拋棄網站，全力整理跟撰寫內容，才好不容易在第一堂課前勉強上架。&lt;&#x2F;p&gt;
+&lt;p&gt;實作的過程的確是踩了些雷，也告訴我不該急進。
+最初直接在網路上找別人現成的範本開始改，搞了好幾天之後發現我不太會改他們的程式碼，於是才開始看官方教學重新學習如何寫一個網站主題。花了三四天集中刷完教學影片跟官方文件後，我開始大量載下不同的現有網站主題，一個一個閱讀他們的寫法，最後才東摸西採花了兩個星期寫出自己的網站。
+只不過一當我的網站想支援不同螢幕尺寸(RWD) 時，卻又陷入了另外一個瓶頸：我沒有RWD經驗，僅存時間也不夠學。
+時間壓力下我又回到網路上搜尋範本，但這次因為已經對 Hugo 有不少理解，一天多就做出成果了。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;website.gif&quot; alt=&quot;website-demo&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;shou-fa-zuo-ye&quot;&gt;收發作業&lt;&#x2F;h2&gt;
+&lt;p&gt;這是整個流程中最困難的一部分，難的原因是用 Git 收發作業在實際上有很多種方式，這花了幾個星期的時間去實驗跟分析每個我想到的方法，最後才給出現在的樣子。&lt;&#x2F;p&gt;
+&lt;p&gt;這些方法的優劣是怎樣評估的？&lt;&#x2F;p&gt;
+&lt;p&gt;所有的評斷標準都是回到初衷：&amp;quot;我想給學生最好的修課體驗&amp;quot;，當然最好也能同時解決前面提到的問題。&lt;&#x2F;p&gt;
+&lt;p&gt;我希望從學生的角度來看，盡量讓學生知道最少的額外知識，不管是收發作業，又或是更新作業敘述，都只需要最少動作就可以完成。
+以 Git 開發為例，我們讓同學一個人每次作業都開一個新的 Repository，所以沒事的話預設不用處理分支的問題，而 Repo 的初始化則是使用我們提供的範本。這樣帶來的後果是在一個80人的課程中，6 次作業就會帶來接近 500 個 repo。&lt;&#x2F;p&gt;
+&lt;p&gt;不過我覺得這是相對可以接受的，所以我們的就會使用每學期新開一個組織的方式來進行作業。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;compiler-f19-org.png&quot; alt=&quot;snapshot of github organizatoin&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;我採用 Github Classroom 來進行收發作業，雖說 Github Classroom 功能並不完善，但它也幫我們做掉課程需求 80% 的功能，我們只需要自己寫剩下的 20% 就好。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;classroom.png&quot; alt=&quot;github classroom&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;github_classroom_craw.gif&quot; alt=&quot;github classroom craw&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;zuo-ye-gui-ge-shu-geng-xin-zuo-ye&quot;&gt;作業規格書 &amp;amp; 更新作業&lt;&#x2F;h3&gt;
+&lt;p&gt;我們該如何讓同學拿到作業規格書？而且如何在發現作業敘述不明確時適時更新？&lt;&#x2F;p&gt;
+&lt;p&gt;過往的情況通常是用 Latex 製作成一個 pdf 檔案釋出，當規格有異動時可能會是製作新版本的 pdf 或是在某些公開的平台來公布改動，希望學生可以自己理解，放入自己的作業中。但這樣的問題其實很大，因為不是每個人都會每天重複檢查有沒有最新版的規格，而就算知道有更動後要整合進自己的體系也會有點麻煩。&lt;&#x2F;p&gt;
+&lt;p&gt;很簡單，我們把規格書寫成 Github Repository 中的 &lt;code&gt;README.md&lt;&#x2F;code&gt; 文件，當作業更新時我們就會跑 scrpit 到每一位同學的 repo 下開出新的 Pull Request，由於是使用 git 操作，同學可以直接透過 &lt;code&gt;git diff&lt;&#x2F;code&gt; 看出更動的程式碼或文件部分。&lt;&#x2F;p&gt;
+&lt;p&gt;而為什麼更新是使用開 Pull Request 的方式而不是直接更新同學的 repo，是因為我想把更新規格書的“權力”交給學生，所以不會擾亂到他們的作業流程。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;patch-example.png&quot; alt=&quot;patch to repos&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;一個學生一個 repo，所以每次更新都需要發 80 個 Pull request ，而我們還需要維護這些 Pull request 中說明文件的範本，也需要維護哪些檔案是需要更新的，這就是細節中的細節了，細講的用處不大。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;shou-zuo-ye&quot;&gt;收作業&lt;&#x2F;h3&gt;
+&lt;p&gt;收作業又是另外一個難題了。&lt;&#x2F;p&gt;
+&lt;p&gt;在使用 Git 繳交作業的情況之下，單純只是 clone 學生的 repository 並且翻 git history 來找到學生死線前的繳交的最後版本是沒有用的，因為 git 的提交時間是可以被任意竄改的。&lt;&#x2F;p&gt;
+&lt;p&gt;所以我想到了三種方式，第一個種方式是使用 Github Webhook，主要想法是在每個學生的 git repository 中加上一個 callback，一但同學有 push 行為時就通知我們的伺服器，在收作業時就根據收集來的資料來知道同學的繳交版本跟時間。對此，我在一個月內自學了 node.js，並且使用了 express 去架設了這樣的伺服器。只不過服務寫出來後就被老師打槍了 — 為了交接跟管理方便，教授希望我們架的伺服器越少越好。&lt;&#x2F;p&gt;
+&lt;p&gt;第二種方式是結合 CI&#x2F;CD 工具 — 當學生的 repo 一有動靜，CI&#x2F;CD工具就會自動執行預設的 script 並在系統中留下最後的執行時間，這樣的優點是除了紀錄繳交時間外還可以額外結合自動化批改。唯一問題是在現有較方便的 CI&#x2F;CD 工具下我們的作業一定得採用 &lt;strong&gt;付費方案&lt;&#x2F;strong&gt;，顯然教授不會支援我們這筆經費(至少在他理解到這堂課會變得多棒之前)，而我們也不是哈佛的 CS50 課程，沒辦法像他們一樣直接得到這些廠商的特別贊助，免費拿到這些資源，所以我們要玩就要用窮人的方法來玩 -- 自架 CI&#x2F;CD 服務，不過這個時間成本對我來說有點高，所以就暫時擱置。&lt;&#x2F;p&gt;
+&lt;p&gt;第三種方式是用現有服務來拿到同學在死線瞬間時間的 git commit hash ，也是我們現在用的方式，因為 Github Classroom 支援作業繳交的功能，他們的伺服器會設定在死線到的那瞬間拿取所有人最新的 git commit 紀錄當作繳交版本。 但在我們的情況下要使用這種方式還需要撰寫一些額外的腳本，因為 Github Classroom 缺少公開 API ，而且也不支援遲交功能。針對拿資料的部分，我只好自己撰寫一支爬蟲來處理。針對 Github Classroom 不支援遲交作業的選項，我們想到的方式是做出兩種死線，我們系統上設定的死線是作業公告的死線結束一星期後，在系統死線到的時候再配合 Github 的公開 API 拿取同學最後一次 push 的伺服器時間，藉此判定同學的真正繳交時間。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;event_times.gif&quot; alt=&quot;script event times&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ping-tai-xuan-ze&quot;&gt;平台選擇&lt;&#x2F;h2&gt;
+&lt;p&gt;在第一個學期中選擇 Github 是因為有 Github Classroom 能夠輔助我們做事情，在時間壓力之下不太想重複造輪子。
+Github 的第一個好處是能見度高，有較多第三方服務支援，其次是伺服器的吞吐量大，不像學校一樣會在期末考週或是午夜死線因流量過大而當機。
+不過小問題是客製化程度好像略低，如果要考慮 CI&#x2F;CD 整合的話我會比較考慮使用 Gitlab。
+未來在整合的時候會考慮寫一個 Adaptor，然後底層可以自由接 github 或是 gitlab 來實作，讓課程能自由在不同平台之間選擇。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;tao-lun-qu-jia-she&quot;&gt;討論區架設&lt;&#x2F;h2&gt;
+&lt;p&gt;課程的討論區其實不難架設，我的方法是在組織之下開一個專門討論用的 repo ，請同學有問題就開 issue ，我們會透過不同的 tag 來表示問題的資料與狀況。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;compiler-discussion.png&quot; alt=&quot;dicussion room&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;si-you-zi-liao-nei-rong&quot;&gt;私有資料內容&lt;&#x2F;h2&gt;
+&lt;p&gt;在課程的內容管理部分，我就是開啟一個只有課程組織內的成員才有存取權限的 repo。如此一來我們的靜態網站就可以把身份認證的問題丟給 github 處理。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;compiler-private.png&quot; alt=&quot;private contents&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zi-dong-hua-pi-gai&quot;&gt;自動化批改&lt;&#x2F;h2&gt;
+&lt;p&gt;今年最不一樣的事情是，我們在每一次作業都加入了自動化批改流程。&lt;&#x2F;p&gt;
+&lt;p&gt;聽起來很簡單，但所謂的自動化批改就是使用 diff 來比對答案相不相同，只不過如果想要針對編譯器的輸出來進行比對，就代表編譯器的規格必須要定義的完全沒有歧異，再加上今年的課程改革幾乎把作業規格打掉重寫，只能說益揚跟宇勝兩人實在是厲害了，用兩個人的力量就做出過去課程助教定義不出來的細節，讓我不用在這方面多做操心，專心開發課程工具。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;hw-spec.png&quot; alt=&quot;exmaple of sepcification&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;auto-test.png&quot; alt=&quot;auto testing&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jiao-ben-gong-ju-kai-fa&quot;&gt;腳本工具開發&lt;&#x2F;h2&gt;
+&lt;p&gt;我們的平台之所以會選擇，github classroom + github ，是因為他們的服務已經替我們做掉了 80% 的事情。接下來只要做額外 20% 的事情就好，而這些 script 就是剩下的 20%。
+在思考我們的作業需求之後，我們參考 Github API 配合 Python 來自動化掉一些流程。
+比如說:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;邀請學生進入 github organization&lt;&#x2F;li&gt;
+&lt;li&gt;讓所有助教擁有學生作業 repo 的存取權&lt;&#x2F;li&gt;
+&lt;li&gt;更新作業規格，釋出範例 code （簡稱打 patch）&lt;&#x2F;li&gt;
+&lt;li&gt;擷取同學的作業繳交狀況 + 產生遲交報告&lt;&#x2F;li&gt;
+&lt;li&gt;公布成績&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;大部分的作業就是藉由 Github API v3 去實踐，我曾經考慮改使用 Github GraphQL API v4  來實踐，只不過開發當初在社群上發現有人反映 Github 的 GraphQL API 有些許問題，我就先改用這個了，或許未來能夠藉著重新整理程式碼的時候慢慢搬遷過去。&lt;&#x2F;p&gt;
+&lt;p&gt;在這之中比較有趣的腳本我認為是公布成績。&lt;&#x2F;p&gt;
+&lt;p&gt;考量到學生的隱私權，我把成績透過開 issue 到同學個別的作業 repo 之下來個別公布，每一篇 issue 會包含學生的總成績，以及像是一些自動化批改的輸出資訊，來讓同學知道自己哪些部分沒有做好。&lt;&#x2F;p&gt;
+&lt;p&gt;為了方便管理資料，我們把所有學生的成績放在同一張 google sheet 下面，公布成績的腳本會透過google sheet API 來拿取必要資訊，但也跟前面說的一樣，一些非成績的資訊我們會放在一個助教共同管理的 github repo 之下，透過範本的方式來填入每一位同學的詳細資訊。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xian-kuang&quot;&gt;現況&lt;&#x2F;h2&gt;
+&lt;p&gt;總之，第一個學期是跑過了，這學期常常有一邊搭火車一邊在前面舖鐵軌的感覺，不少夜晚跟週末都是在趕工下度過。
+且在不少同學都能正確完成規格要求的情況下，大致上證明我們的規格書是可行的，只不過透過每次作業同學的疑問我們都可以再找出一些可以細修的方向。&lt;&#x2F;p&gt;
+&lt;p&gt;主要的問題或許是我們做出的難度過高，即便大部分作業立意良善，努力透過教學文件來降低難度，卻因為過多的實踐細節以及一開始的作業留白讓同學不知道該如何下手。常常可以看見同學分享從理解到寫完大概是 30+ 小時的過程。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wei-lai-gai-shan-fang-xiang&quot;&gt;未來改善方向&lt;&#x2F;h2&gt;
+&lt;p&gt;學期結束之後，我想我們會去重看每次同學中給出的回饋來決定未來修改方向。不僅是規格細節，整個學期每份作業的難度也都要進行修改。&lt;&#x2F;p&gt;
+&lt;p&gt;或許有些同學會認為作業過難，但其實我有幾點比較有趣的認知：我認為高作業難度是可以而且該被鼓勵的。&lt;&#x2F;p&gt;
+&lt;p&gt;為什麼呢？&lt;&#x2F;p&gt;
+&lt;p&gt;這就是在美國的修課感想了。今年年初到美國之後才發現 UIUC 並不推薦一學期修超過 3 門 CS 的必修課程，原因是每個必修的作業量都很重，這跟我在交大的經驗完全不同，過去身旁總充斥著一學期五主科，七主科的同學們，可以直接說是因為課程負擔過低，不少課程都是左摸又摸，作業簡簡單單就能完成，一學期之後什麼都沒學到。大部分的課程都是如此，也讓我四年下來漸漸從戲稱交大為”學店“轉成為開始如此認同。&lt;&#x2F;p&gt;
+&lt;p&gt;我主張，&lt;strong&gt;作業應該要難&lt;&#x2F;strong&gt;，但不能只是一股腦的難，要難的有門路。
+難不該是問題，而是要讓肯花心思，沒底子的同學能靠自己的力量爬上來。
+課程應該盡力包含所有作業會使用到的東西，該給的教學要給，改放的提示也要放。&lt;&#x2F;p&gt;
+&lt;p&gt;「難的合理」是這學期除了修課體驗之外的另一大目標，但卻也是因為這個目標的存在才造成不少問題。
+30+ 小時的寫作業時間，是這門課的修課生跟授課者都該有的共識，但在交大修課的學生基於過去經驗沒辦法領會到這件事情，不少人在修這門課的同時又嘗試了更多重課，搞得自己生不如死。
+未來在調整難度的同時，我也希望能夠讓同學具有這樣的共識才能進來修課。&lt;&#x2F;p&gt;
+&lt;p&gt;在未來作業中，我會嘗試把自動化批改跟 CI&#x2F;CD 工具結合，以及給出作業環境所需的 docker image。讓同學能夠在本地端就能取用到相同的資料。&lt;&#x2F;p&gt;
+&lt;p&gt;最後大概就是重構我寫的腳本，把他們整理成一個工具集並撰寫足夠的文件，當整理完畢後可能會開源出來，為社群貢獻一分心力吧。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zong-jie-qi-wang&quot;&gt;總結 &amp;amp; 期望&lt;&#x2F;h2&gt;
+&lt;p&gt;回想高中忙社團的時候，我總是付出了一堆時間跟努力，旁人卻常常看不見自己的付出，度過那段歲月後我學到的是除了自己要努力之外，也要努力在重要、有影響力的方向上。&lt;&#x2F;p&gt;
+&lt;p&gt;這門課一開始的想法很簡單，只不過實驗上可行與能搬上檯面兩者真的需要不小的落差需要去彌補。做工程，或是做產品的人，都需要這種打磨的心態。&lt;&#x2F;p&gt;
+&lt;p&gt;跟羿伶聊天的時候曾經提過，我認為推動社會進步的力量不是只有利益關係，對於好與正確的堅持也是重要之事。
+希望在我的影響之下，我所待過的交大資工往更專業，有理想的方向移動一些。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yi-xie-lian-jie&quot;&gt;一些連結&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;compiler-f19.github.io&#x2F;&quot;&gt;課程網站 - https:&#x2F;&#x2F;compiler-f19.github.io&#x2F;&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;compiler-f19&#x2F;Discussion&quot;&gt;課程討論區 - https:&#x2F;&#x2F;github.com&#x2F;compiler-f19&#x2F;Discussion&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC交換期末心得(學校版本)</title>
+		<published>2019-08-01T00:00:00+00:00</published>
+		<updated>2019-08-01T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-exchange-report/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-exchange-report/</id>
+		<content type="html">&lt;p&gt;這篇單純是為了拿獎學金補助繳交給交大的報告。
+或許對我來說，比這篇心得重要的是，我在文章裡面提到的，這種應付事情的心態吧。
+這世界上要做的事情太多，不要把太多心力放在無聊的人事物之上。&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;寫心得報告時一直在心中感到一種矛盾 — 不知道自己為什麼要花心力做這件事情。&lt;&#x2F;p&gt;
+&lt;p&gt;持續寫作了一個星期後，突然發現到我心中真正所想、反思到的，或許能夠寫在報告裡，但真的有人會想看嗎？ 繳交心得這件事情本質上就只是應付，可有可無，但我卻為了把自己的想法與觀點放在一個沒人會注意的地方花費過多心神，更或許會因為太過刺眼，反而不會被選擇刊出。&lt;&#x2F;p&gt;
+&lt;p&gt;這是一個很矛盾的事情，將心力花費在沒有影響力，也不會讓自己開心的事情上。
+發現這件事之後，只花了一下子就刪除超過一半文字，簡單的整理幾點出來，應付應付。
+但就為了留個紀錄，就將閹割很多的心得暫且放置於此吧。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;這世界上要做的事情太多，不要把太多心力放在無聊的人事物之上。&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;正文結束。&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;yuan-qi&quot;&gt;緣起&lt;&#x2F;h2&gt;
+&lt;p&gt;從高中時就將交換學生設為了大學四年的長程目標，也是因為如此，在高中挑選不同學校的資工系時鎖定了交大資工。單純為了有多機會可以到美國交換。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yan-xiu-xue-xiao-jian-jie&quot;&gt;研修學校簡介&lt;&#x2F;h2&gt;
+&lt;p&gt;UIUC 的電腦科學 ( Computer Science ) 在美國大學排名裡大概落在第五名左右。學校位於香檳厄巴納兩個鄰接的城市中，是這兩城的核心，整個地區基本上就是以大學為主體，距離芝加哥大約兩個多小時車程，出了大學城之外全部是農地，環境清幽，比交大偏僻，更適合研究跟思考人生，但男女比也比交大正常很多。&lt;&#x2F;p&gt;
+&lt;p&gt;種族組成方面，ECE 跟 CS 兩個科系中充滿了亞裔跟印度裔學生，在國際生之中最多也來自中國，有時候上課的時候還會很懷疑美國人跑到哪裡去，當我修其他學門的課程才會發現正常的人種比例。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;guo-wai-yan-xiu-zhi-ke-cheng-xue-xi-ke-nei&quot;&gt;國外研修之課程學習(課內)&lt;&#x2F;h2&gt;
+&lt;p&gt;期末收到成績後，我還是要在此提醒一下未來想要交換的同學，就算依照老師公佈的計算成績方法計算起來你已經及格了，期末考如果不去考不只是考試拿零分，還會被直接當掉哦。&lt;&#x2F;p&gt;
+&lt;p&gt;以下是我在美國修的課程:&lt;&#x2F;p&gt;
+&lt;p&gt;一：哲學概論 PHIL100-ACP   [每週出作業，每週兩篇指定選讀]&lt;&#x2F;p&gt;
+&lt;p&gt;交換前選課時找到了篇很久之前的 UIUC 交換心得，發現學姊修了門歷史系課程，體驗不錯。PHIL100 是哲學系開的課程，課號後面附加的 ACP 代表進階寫作，負擔會比沒有 ACP 的多上一些，雖然負擔真的比較重，但我想這門課也有很多好處，哲學這種學科如果不真的透過寫作來思考，可能沒辦法把觀念真正融入自己的思想。再來，老師的授課水準是我在大學四年遇過最好的一位，會在學期間帶領同學進行思辨，上課不太會有學生分心，講課時很大一部分放在同回答跟討論。這門課主要介紹不同哲學上的大主題，副標是教同學如何進行哲學思考，還有從頭到尾寫一篇哲學論文。&lt;&#x2F;p&gt;
+&lt;p&gt;每個星期都會有兩篇文章要閱讀，上課時老師會假設同學都已經讀過內容，著重在抓住作者的要表達的思想精華，還有比較跟回答同學的論述，我很喜歡課程中的氛圍，師生之間有很強烈的跟交流，老師在這方面一定下過很多精力。助教是哲學系的碩博班學生，每個星期的助教課都一定會到課，也會很仔細批改學生的論文，指出文章架構缺失與邏輯矛盾。上課的內容並不像是介紹，而是透過不同哲人寫的文章跟觀點來討論，上帝，自我，正邪，自由等等重要議題，每個議題往往都不會留下個正確答案，但老師很著重在學生的思考歷程。&lt;&#x2F;p&gt;
+&lt;p&gt;這門課其實很有負擔，每個星期讀的文章頁數都很多，因為我英文程度普通，通常每篇都會花上3小時來進行精讀。在這個網路發達的時代，雖然不少課程都能夠用線上取得，但就唯獨這門課我認為是沒辦法用網路觀看取代，我很榮幸能選到這門課程，也很推薦來交換的各位可以體驗一下非理工的科目，給自己多一點機會增廣見聞。&lt;&#x2F;p&gt;
+&lt;p&gt;二: 電腦系統工程 ( Computer System Engineering ) ECE391  [幾乎每週出作業]&lt;&#x2F;p&gt;
+&lt;p&gt;單看課名可能會對內容不太清楚，但其實這不是涼課，這是 ECE 系之下的 CE ( Computer Engineering ) 主修學生的必修，大綱是在學期中實踐一個基礎的作業系統。很像交大資科所孝櫟老師開的”作業系統實踐”的簡化版本。課程主題會提及開機、記憶體管理、檔案系統、排程、系統呼叫等等的議題，一步步打造出一個作業系統。因為是親手實踐，碰過真正的程式碼，所以印象會特別深刻。這個門課要寫的作業系統是四人為一個小組進行協作，也蠻考驗修課生的分工能力。有趣的是，這門課的資源很多，研究所跟大學部的助教加起來差不多 30 位，一週七天都會有人在實驗室輪班回答問題。&lt;&#x2F;p&gt;
+&lt;p&gt;三: 分散式系統 ( Distributed System ) CS425   [兩週一次作業]&lt;&#x2F;p&gt;
+&lt;p&gt;除了我對主題感興趣之外，交大資工已經長年不開分散式系統課程是我選這門課的主因，因爲如果不來這裡修，大概也沒機會修到這門課了吧(慘)。&lt;&#x2F;p&gt;
+&lt;p&gt;這門課程除了基本介紹分散式系統的主題之外，也會介紹一些近年分散式系統的論文。有興趣的大學部同學也可以選修研究所的版本，挑戰更有趣的實作內容。其實我一開始也是修研究所的版本，只不過中途組員退選，一個人撐不了程式作業壓力才決意轉回大學部課程。嘻嘻，今年修課時剛好遇到很硬的老師，不含上課跟煮飯我曾經達到一週每天平均13小時都在寫這門課的作業呢。&lt;&#x2F;p&gt;
+&lt;p&gt;四: 圖論 ( Graph Theory ) MATH412  [每週出作業]&lt;&#x2F;p&gt;
+&lt;p&gt;數學系的圖論，內容中規中矩，但就是要記蠻多證明。每次寫作業都覺得很有挑戰性，而且最後交作業時都會瞄到同學交出超級複雜卻又極為神似的證明，是巧合嗎?我不這麼認為。我堅信這是上天給予那些開天眼的人的預示，而且還能合理推測應該是屬於某個理工信徒眾多的宗教，名字嗎... Chegg 吧。除此之外，老師除了表定課程之外還會帶討論時間，內容就是幫同學複習上課內容，我覺得對學習很有幫助。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;guo-wai-yan-xiu-zhi-sheng-huo-xue-xi-ke-wai&quot;&gt;國外研修之生活學習(課外)&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;yin-yan&quot;&gt;引言&lt;&#x2F;h3&gt;
+&lt;p&gt;大學主修資訊工程，未來也可能是個工程師。四年之間我們所遇見、學習離不開工程與科學。但如果能夠再看遠一點，看穿那些題目跟程式碼，看回我們自己本身，其實我們的所見所學，都是以人為初衷，所有的一切終將回歸於人 — &amp;quot;It’s all about people.”。所以單論如何成為一個好的工程師，除了具備技術底子之外，我認為還需要對人抱持強烈關懷。&lt;&#x2F;p&gt;
+&lt;p&gt;我想表達，課業是重要的，但對我來說卻不會是唯一重要的 - 在這裡遇見的人，交流時的火花與帶來的後續思考或許才是更具有價值的事物。在選了一些自己有興趣的課後，我就抱持著觀摩的心態在修課，但成績也不求拿到A。把剩下的時間都用來交友，練習打理生活，特意留下不少空白時間給自己思考與紀錄生活。總歸來說，我的課外生活一半是在寫文章，另一半是在打排球。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;pai-qiu-jiao-you&quot;&gt;排球交友&lt;&#x2F;h3&gt;
+&lt;p&gt;延續過去在交大練系隊的習慣，來 UIUC 後就找到了三個不同的排球團，FVE, NFA, Rec team。Rec team (Recreational volleyball) 的組成基本上是美國的當地學生。而 FVE 跟 NFA 主要是由台灣與大陸國籍的同學組成。只要體能跟時間允許的話，週一二三四六日都有球打。雖說一開始不知道很多排球術語在英文裡面該怎麼說，打球時候會抓不清隊友的意思。不過運動也真的是無國界，很多情況隊友隨便比劃一下就能知道大概意思，術語只要一兩個月就能適應，不算特別困難。&lt;&#x2F;p&gt;
+&lt;p&gt;我在學期中後期就很少參加 Rec team 運動了，雖然有點可惜，但其實我認為在今年參加的 FVE 球隊中，成員間的連結是我十分喜歡與欣賞的。我喜歡跟大家一起打球聊天，看比賽，一起出去比賽，吃宵夜，到別人家作客，Potluck，唸書。&lt;&#x2F;p&gt;
+&lt;p&gt;跳出舒適圈，拓展朋友圈其實不難，我想最簡單的方式就是不要去限制自己，遇到機會時多練習產生&amp;quot;為什麼不?&amp;quot;，多用真心交友，等到下一個舒適圈建立起來的時也代表自己又成長一些了。謝謝在 UIUC 遇到的每個跟我打過球，陪我聊天的人，我很喜歡這裡的生活，每次生活上遇到什麼困難都有人挺身而出幫忙，希望未來的哪天我們還會再遇見!&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;ji-lu-si-kao&quot;&gt;紀錄思考&lt;&#x2F;h3&gt;
+&lt;p&gt;我是個想法多，卻難以捕捉紀錄的人。常常在跟別人溝通的時候會因為自己過於跳躍的思考邏輯而產生隔閡。所以交換生活的另外一個目標是開始練習紀錄自己的生活與思考過程。我會強迫自己每一到兩週都要寫一篇紀錄並公開發表，內容是有關自己的見聞跟對特定事物的看法。借助於哲學課的閱讀跟寫作功課要求，我開始在紀錄時順勢延伸想法，像寫哲學作業一樣對自己提問。而生活中的空閒時間也因此漸漸陷入了 提問-回答-歸納-再提問 的迴圈。簡而言之，這是一個有趣、對自我影響深遠，卻需要下很多心思的活兒。萬事起頭難，最初常為此花費整個週末在電腦前打字，甚至還寫出一堆雜亂無章，不敢發表的垃圾，直到持續好幾個月之後才越來越上手。現在的我知道怎樣去捕捉自己的思考，也比較懂得剪裁內容，文章更是寫的更快、能帶的更深入一些了。&lt;&#x2F;p&gt;
+&lt;p&gt;”你是誰? 你為何而來? 你要往哪裡去?” 大學畢業之際，面對這些問題，我認為自己已不像高中時會被嚇得不知所措，交換的空白時光讓我有很多時間去沈澱自己，經過了經驗跟思考的洗禮，我認為自己已能鼓起用氣嘗試去回答。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;lu-you&quot;&gt;旅遊&lt;&#x2F;h3&gt;
+&lt;p&gt;旅遊是有趣的，但如果想把時間都獻給旅遊的話我還是建議其他同學申請歐洲學校交換，美國每週出作業的套路很容易限制同學的行動能力。&lt;&#x2F;p&gt;
+&lt;p&gt;三月的春假跟五月中就結束的學期可以讓同學有兩次比較大型的旅遊機會。UIUC 附近的芝加哥是個很有趣的城市，除了擁有在台灣不曾見到的超大型城市規劃規模，也是個聽藍調演奏的好去處，實在推薦多待一陣子。&lt;&#x2F;p&gt;
+&lt;p&gt;出去各地旅遊的時候可以沒事多找路人聊天，問問當地人有什麼推薦的餐廳或是好地方。或是去餐館的時候也可以跟服務生或酒保攀談，偶爾會聽到一些有趣的故事，聊得開心也很容易被當交朋友請吃食物。我想旅遊的最好心態就是放開一點，多多體驗 !&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yan-xiu-zhi-ju-ti-xiao-yi-qing-tiao-yel-shi-yel-ju&quot;&gt;研修之具體效益(請條列式列舉)&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;吃很多牛排&lt;&#x2F;li&gt;
+&lt;li&gt;體重上升五公斤&lt;&#x2F;li&gt;
+&lt;li&gt;很多自由時間&lt;&#x2F;li&gt;
+&lt;li&gt;跟很多人交流拓展國際觀&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;gan-xiang-yu-jian-yi&quot;&gt;感想與建議&lt;&#x2F;h2&gt;
+&lt;p&gt;我認為作為一位大學生，如果能拋掉所有經濟層面的考量，我會選擇到 UIUC 過我的大學生活。說白了點，以一位學生的角度，UIUC 所營造出的環境是遠舒適於交大的。我喜歡討論空間設置方式，也喜歡嚴謹的教學，優質師資跟助教群，整個學校的氛圍都在向學生傳遞一個訊息 - &amp;quot;只要你想學，沒人會阻止你。&amp;quot;&lt;&#x2F;p&gt;
+&lt;p&gt;台灣畢竟是小國，而且我國大學的主要資金來源跟規模也與美國不盡相同。美國大學的金援來自各大基金會與校友贊助，台灣的大學則幾乎靠政府撥款、接政府計畫維生。我們沒有這麼龐大的金援後盾之下，即便全力集中全台資源也就只能產生一間台灣大學。身為交大資工交換生，我認為我在這次的交換觀察沒辦法解決上述提到的大環境問題。而能做到的是進一步限縮討論範圍，不討論大學的發展，而是交大資工學士班的 &amp;quot;教育&amp;quot; 該如何去改進，使我們學生在學習時擁有更貼近我在 UIUC 體驗到的教學氛圍。我會提出三個我觀察到最明顯的現象，並且提出建議的解法。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;xiu-ke-yu-xue-xi-liang-zhe-de-luo-chai-gan-guo-da&quot;&gt;修課與學習兩者的落差感過大&lt;&#x2F;h3&gt;
+&lt;p&gt;我認為，交大資工在不同必修課程間的課程目標設定並沒有做得很好，最明顯結果顯現在同學的選課抉擇上，往往是在兩個授課老師間擺盪，一邊被操的半死收穫豐盛最後分數普通，另外一邊則是幾乎不用學習卻期末成績輕鬆領高分。有些人可能認為這是同學的自由，但多少課程的情況是同學想修紮實課程，卻因為加簽名額不足關係被丟到學不到東西的課程裡面，最後感受到自己被系上課程敷衍? 我們要如何對想學習卻被丟到完全學不到內容課程的學生交代 ? 我認為，除了擴展老師的加簽名額之外，如果我們必修的期中期末評量能採用共同命題，會不會間接、在最低限度上，即便是被分數驅動，稍微改善學生學了一學期卻什麼都不知道的結果，同時稍加平衡同學在推甄時的公平性 ? 我認為畢西課程的期末共同命題有他的好處，也是我們在沒辦法保持課程內容水準的前提下資工系的教授們必須去考慮的。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;xi-shang-fu-wu-yi-jing-guo-shi-ji-chu-yao-qiu-tai-dan-bo&quot;&gt;系上服務已經過時，基礎要求太單薄&lt;&#x2F;h3&gt;
+&lt;p&gt;我去到 UIUC 的其中一個驚嚇，就是他們擁有一個很完整的 EWS (Engineering Work Station) 服務，所有工程學院的學生都可以在在工程圖書館自由登入使用自己的環境，以及那裡的學生在交程式作業時是繳交到工程學院自己架設的 GitLab 服務上。交大資工沒有 UIUC 規模的資訊中心卻可以生出一個類似 EWS 的小型版本，直得嘉許，但是我們的程式作業現今卻往往是自己壓縮成一個檔案，上傳到 E3 讓助教一個一個下載來批改，甚至有時候會要求把所有原始碼塞到同一個檔案內做繳交，這樣做不僅繳交麻煩、助教不好做教新通知，還讓學生脫離現今資訊業的環境以及資訊工程就是要方便人們生活的準則。&lt;&#x2F;p&gt;
+&lt;p&gt;我認為我們必須知道這麼時代最少需要什麼，至少讓學生能熟悉版本控管，以專案為基礎作為開發，並利用 GitLab 或 GitHub 這些現有的服務來加速我們的分派作業與繳交流程。&lt;&#x2F;p&gt;
+&lt;p&gt;在回交大之後，我開始動手將未來大三的編譯器課程作業全部放到 GitHub 上面進行分派與繳交。一個多月以來我認為流程已經確定的差不多，這並不是一個不可行的方式，或許以交大資工目前經費與人力下，以系為單位架設 GitLab 服務是個很困難的事情，但為什麼我們不主動去尋求 GitHub Classroom 等等現成又享有教育優惠幾乎免費的服務來使用呢 ? 能不花時間直接解決八成的課程問題，再以系計中的力量去專注於開發輔助工具，或許是在有限資源下將交大資工學生教育體驗往 UIUC 同一水平靠近最為實用的策略。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;zhu-jiao-qun-de-fen-shen-fa-shu&quot;&gt;助教群的分身乏術&lt;&#x2F;h3&gt;
+&lt;p&gt;學校最近幾年因為勞保關係，降低了助教實拿薪資，而且情況可能變成一堂課的只能有少量助教掛名，但實質上是多位助教共同分擔薪水。一堂課程 30 多人的必修課，最後可能導致每位助教一個月實質月薪只有 2000 台幣 。 在實領這麼少錢，自身又有研究進度壓力的情況下，有哪位助教有足夠誘因在課程上花費心思? 所以我認為，助教的低薪直接犧牲掉了同學的修課品質。&lt;&#x2F;p&gt;
+&lt;p&gt;我認為資工系應該增設 &amp;quot;大學部助教修課機制&amp;quot;，讓修過課且成績有一定標準的大學部學生能以修課形式去輔助研究所助教教學。一堂課以 1, 2 個研究所助教輔以 5 位以上的大學生助教協同改作業，回答同學問題，撰寫課程筆記等等，增加未來學弟妹們的修課體驗。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week9,10 - 芝加哥遊</title>
+		<published>2019-03-29T00:00:00+00:00</published>
+		<updated>2019-03-29T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-9-10/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-9-10/</id>
+		<content type="html">&lt;p&gt;老爸曾提過，不管喜不喜歡，身為年輕人一定要出去看看這個世界的樣子，會會這世界上的各大城市，趁著年輕時開開自己的眼界。&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;春假回來後陷入了一陣低潮。稍稍回頭審視一下這篇文章，實在是寫的亂七八糟。沒主題跟規劃，充滿冗字，都是一些沒整理過的原始的想法跟文字，但因為真的沒有多少時間紀錄，又或者是說最近把心思投入在思考人生更迫切的問題!
+但...一但拖延下去就大概永遠不會做了，先求有再求好，等到能抽出時間時再慢慢把內容整理跟補完，我想現在的我只是需要點時間讓自己的心靈休息一會。&lt;&#x2F;p&gt;
+&lt;p&gt;3&#x2F;3~3&#x2F;15&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;dan-wei-huan-suan&quot;&gt;單位換算&lt;&#x2F;h2&gt;
+&lt;p&gt;來美國前一直對物價換算很不習慣。現在的美金換台幣差不多是1比30。也就是說，一個5美元的珍珠奶茶
+約150台幣左右。只不過美國的物價跟台灣不同，如果要估算自己買的東西的物價水準如何，就只要把美金乘以10當台幣檢視看看就行了。我個人感覺起來美國(外食)物價大約是台灣三倍。
+測試一下，一份13美元的漢堡王套餐在美國會不會太貴呢? 乘以10，換算成台灣的物價可能是130元，台灣的麥當勞也差不多這價錢，還行!
+有沒有發現，不管怎麼樣一份300多台幣的漢堡王算起來還是太貴，沒辦法，只要外食就是這個價格。所以做這邊的同學們都有個默契:&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;quot;不要算&amp;quot;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;真的，算了你會怕。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zhi-jia-ge-xing&quot;&gt;芝加哥行&lt;&#x2F;h2&gt;
+&lt;p&gt;上星期自己在想來了這麼久都沒有出去玩，所以就完全不管作業，直接訂這個週末跟同學到芝加哥晃一圈。我們星期六凌晨五點就搭上 Peoria charter 的巴士前往芝加哥，離開香檳跟這城外大片空蕩蕩的荒地。&lt;&#x2F;p&gt;
+&lt;p&gt;當天路上車流並不多，早上七點半我們就在芝加哥聯合車站(union station)旁被放了下來。幾週前芝加哥才迎來了歷史級的攝氏 -30 度低溫，到現在仍有餘威，狂風硬生生把剛脫離暖氣呵護的我們吹到清醒。滿滿高樓直接強勢壓在我的視野之中，蓋住大半藍天。芝加哥建築物排列大致上是被規劃成很整齊的棋盤狀，路筆直到雖然高樓滿街林立，視野卻能沿著街道一路延展到遠方地平線，這種新穎的畫面激起了我的內心，當下就決心一路往西走向密西根湖!&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;chi_1.jpg&quot; alt=&quot;pic1&quot; &#x2F;&gt;
+&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;chi_2.jpg&quot; alt=&quot;pic2&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;應該是假日跟太早的原因，我們經過空蕩的街頭一個個沒有車子打理的紅綠燈，第一個留下深刻印象的建築是  芝加哥期貨交易所(Chicago Board of Trade)，外牆用了在這邊很常看到的石料，搭配上幾對浮雕。整個建築看起來真的很雄偉。細看一下，嘻嘻，是類似 Optima 的字型。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;cbot_title.png&quot; alt=&quot;cbot title&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;cbot.jpg&quot; alt=&quot;cbot&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;沿著路走，第二個激起我好奇心的是城市裡的橋，第一次看見時外觀看起來是石橋，但從車子經過時造成的震動卻感覺不是如此。到後來往北邊走之後才漸漸透過地板的震動發現原本我以為的道路其實並不是建立在泥土而是在鋼結構之上。
+來這裡之前我有稍微看了過資料，芝加哥是個經歷過一次完整都市規劃的城市，地下有打過一層地基，也可以說這是個雙層城市，走進去之後看見的一樓其實都是二樓，在城市中可以見到一些類似於是往地下一走，就可以看到這樣的景色。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;under_entrance.jpg&quot; alt=&quot;underground&quot; &#x2F;&gt;
+&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;underground.jpg&quot; alt=&quot;underground2&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;往地下一走可以望見另外一個交通網路，真奇妙。可惜去的這週末還是太冷，河道邊並沒有開放行走，所以可能下次天氣好些時還會再來看看吧!&lt;&#x2F;p&gt;
+&lt;p&gt;在行程上，因為整個週末都是徒步，所以逛的地點也不多，但是
+主要看了 &lt;code&gt;The Art institute of Chicago&lt;&#x2F;code&gt;, &lt;code&gt;Field Museum&lt;&#x2F;code&gt;,在河邊的超級大蘋果。跟把千禧公園逛過一次。不得不說尋找水果店是我到美國的各大城市的樂趣之一。
+這是在Art institute裡面展覽的芝加哥城市規劃草圖。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;chi_cityplan.jpg&quot; alt=&quot;chi_cityplan&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;lu-ren-de-ou-yu&quot;&gt;路人的偶遇&lt;&#x2F;h2&gt;
+&lt;p&gt;午餐正在 Rainbow Pig 排隊入場時，剛好跟一對芝加哥當地的中年情侶聊了起天，是群親切的人。一開始只是閒聊性質的問他們這附近有哪裡好玩想當參考，結果他們很熱心的介紹了一些餐廳跟酒吧給我。可能是看到我拿起筆記本開始紀錄，他們我們離開時還塞了一張寫滿滿的紙條，滿滿的建議。謝謝你們。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;note.jpg&quot; alt=&quot;note&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;mei-miao-de-yi-ye-buddy-guy-s-legend&quot;&gt;美妙的一夜 - Buddy Guy&#x27;s legend&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;buddy_guy.jpg&quot; alt=&quot;buddy_guy&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;在午餐遇到那對情侶時，他們有跟我介紹一家酒吧 &lt;code&gt;Buddy Guy&#x27;s legend&lt;&#x2F;code&gt;，當下我大約也打定了主意不管旅館的遠近，晚上都要去那邊闖闖。&lt;&#x2F;p&gt;
+&lt;p&gt;我雖然喜歡聽藍調跟爵士，但老實說我認真沒聽過 &lt;code&gt;Buddy Guy&lt;&#x2F;code&gt; 這號名字，真的是機運吧，因為我的策略就只是到處在youtube亂挖歌，從來都沒有系統性的看過藍調歷史，羞愧。&lt;&#x2F;p&gt;
+&lt;p&gt;於是我的第一次現場藍調就這麼開箱了。&lt;&#x2F;p&gt;
+&lt;p&gt;晚上九點半一個人走上芝加哥的街頭，我很幸運，酒吧離旅館只有大約10分鐘的路程。 一入場之後就被要求檢查背包還有20美元入場費，剛開始還不太習慣，但之後多去幾次酒吧就知道這算是正常不過的事了。&lt;&#x2F;p&gt;
+&lt;p&gt;場內的氣氛很棒，只是剛進去的我還沒辦法感受到，因為全場大約200多人我只看的到我一個亞洲臉孔，加上四周皆有保鑣站崗，雖然場內所有人無不散發者喜悅跟放鬆的訊息，但我壓力還是會不自覺地上來。不敢太突兀，於是就選了表演場最後方的吧台區。
+剛走進現場時就發現，幹，這場的音樂品質有點高...這個等級是我第一次遇到。&lt;&#x2F;p&gt;
+&lt;p&gt;夜半時，遇見了一位約莫五十來歲的白人男性。他是我看過最浪漫的人，稍微聊天之後，就跟自己的老婆在一旁默默的吃飯、喝酒、聊天，最後溫柔的一起跳起了舞。在老婆離開之後不久，它就終止了自己的在霸台旁的沈默，笑笑的跟我說了一聲再見，然後他就上台了...
+今晚是他的場子。
+他不疾不徐的上台開始調整keyboard，跟台上的朋友握手、問好、談笑，換上他剛剛秀給我的衣服，展開屬於她的夜晚...聽著他陶醉的即興，我方才聊天時問他的問題又有了個答案。
+&amp;quot;How long have you been playing?&amp;quot;
+&amp;quot;I&#x27;ve played all my life.&amp;quot;
+真的很厲害。今天的我好像穿越時空，遇見了自己未來的模板。&lt;&#x2F;p&gt;
+&lt;p&gt;我很喜歡這裡的氣氛，不能錄影，只能拍照，大家或許都會更珍惜的現場表演，大家也能更放得開的做自己，幹，這裡真的是天堂。能感覺得出來在場的人不管是誰都是愛好者，連保鑣都是。當我看到牆上掛的吉他時想要湊進觀看時，被保鑣擋住，但一當我問了&amp;quot;Is that really eric clapton&#x27;s signature?&amp;quot; 他的臉色就一遍，然後開心的邀我靠近凝視每一把琴，還跟我說今天Buddy Guy也會出現在現場，等等可以去跟他互動。幹，大神今天出沒被我賽到。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-9-10&#x2F;guitar_wall.jpg&quot; alt=&quot;guitar-wall&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;第二個來找我聊天的人是我左方的白人男性，來自紐奧良，也約莫50歲，他說他今天是為了追一個吉他手的表演來到芝加哥，聽完之後晚上就順便來聽藍調，他招呼了他其他的朋友來跟我打招呼。
+晚上12點半，應該是表演高潮結束之後，看著太晚的時間，我就離開了酒吧。對了，這時候第一位跟我聊天的人還在場上，大概已經一個半小時了。他還是在享受著他的音樂。回到青年旅館，摸黑進入大通舖睡覺，我覺得這是半年來最幸福的一天。&lt;&#x2F;p&gt;
+&lt;p&gt;這次的旅行其實沒有安排太多計劃，就是在城市裡頭一直走路，看到有興趣的建築或是東西就前往觀看，或是行性的規劃行程，其實這種旅行的步調很慢，很舒適，但是或許只適合跟自己這樣做吧。
+我希望之後到別的城市時都能花時間去當地的藍調酒吧晃晃。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week7,8 - 忙亂，卻也想法叢生</title>
+		<published>2019-03-05T00:00:00+00:00</published>
+		<updated>2019-03-05T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-7-8/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-7-8/</id>
+		<content type="html">&lt;p&gt;2&#x2F;17 ~ 3&#x2F;2&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;gen-xue-zi-ju-can&quot;&gt;跟學姊聚餐&lt;&#x2F;h2&gt;
+&lt;p&gt;來到這邊之後最常聊天的人可能就是平常打球遇見的學長姐團了，跟他們之間很多的對話都讓我看到過去不曾想到的一面，而且我正在想像的道路，其實就有這麼一批人正在嘗試中。
+這週有機會L學姊約了所有交換生們一起聚餐聊天，我覺得蠻開心的!
+人說我們聊天的內容差不多就是自己所關心之物，或許也是這個原因，我發現自己跟L學姐除了打球之外好像很常聊在她找實習的事，L最近對於找實習的壓力比較大了一些，就算努力表現的平淡，也感受得到她背後的焦慮，先預祝她找實習順利!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;bu-shi-qu-de-zai-tan-tan-ke-ye&quot;&gt;不識趣的再談談課業&lt;&#x2F;h2&gt;
+&lt;p&gt;恩，課業壓力真的太大了，一週七天內已經熬了三次夜，而且還有只睡三小時的經驗。這兩週每天平均睡眠時間是5.5小時，相較過去三年在交大8小時好像落差有點大。
+白痴，發現自己選的課程硬度是連當地學生聽到都害怕的程度，但如果我想領交大獎學金的話我不能退任何一堂課，來這邊之後慢慢地根據這種課業壓力開始思考，這是不是跟生存型的策略遊戲一樣，勝利的條件很簡單，不是贏的很好看，而是只要撐過去就是勝利了。
+可能是熬夜熬太兇，有天在上床前我竟然跑出一種粉色的幸福感，有點懷疑是不是升天前的幻覺，不過只能說服自己是因為忙碌的很踏實，身體在為自己每天認真的生活感到開心而已啦。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wo-bu-xi-huan-chun-shu-xue&quot;&gt;我不喜歡純數學&lt;&#x2F;h2&gt;
+&lt;p&gt;上圖論時聽著教授跟同學在討論證明，一如往常的平靜。
+&amp;quot;我不喜歡這樣的生活”，這念頭途如其然地冒出來，如同許久沒說話的老朋友般，平淡地停止了這陣子以來的寂靜。他是位感性的朋友，寡言，且語句中永遠不帶肯定，只會說自己不喜歡什麼，脫口而出常讓我一時摸不著頭緒，跟他對話就像猜謎。但我知道有必要理解他的心情，照著他的喜好走，因為他是我一生中不可分離的摯友，我的快樂全然取決於他。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;”現在是數學課，所以你是不喜歡數學的意思嗎?”，&lt;&#x2F;li&gt;
+&lt;li&gt;”他們太無聊了，整天鑽研一些無關緊要的內容，想像自身的作法嚴不嚴謹，就算是嚴謹又如何，又做不出個什麼東西來。我承認確實有些思維想像真的很厲害，但在這種地方追求這些無謂的美什麼用? 他們的力量只能留存在這種地方，而且光是要理解這些東西就不知到要花上多少年頭，太專一，我覺得沒必要為這種虛幻的東西陪上歲月。”&lt;&#x2F;li&gt;
+&lt;li&gt;“所以你是認為純數學的美妙沒辦法被大眾所接受，所以你不喜歡嗎?”&lt;&#x2F;li&gt;
+&lt;li&gt;“也不是，我覺得理解抽象真的很美，但沒必要把大部分的時間鑽研在證明，而是應該花在理解跟欣賞那些美上面就好。”
+我嘗試從對話中帶走一些真正能夠指示自己方向的內容，好讓讓自己知道該何去何從&lt;&#x2F;li&gt;
+&lt;li&gt;“如果是未來的工作裡，數學家的生活應該就是如此，整天都在想證明哦，所以意思是你不想當數學家吧? 但你不是很喜歡這些抽象的東西嗎? 或許是實作的時候把這些抽象的東西整合在一起，並且讓別人透過結果來知道這些東西的神奇之處吧? 或許讓我們試看看當個能夠欣賞美的實踐者吧。&amp;quot;&lt;&#x2F;li&gt;
+&lt;li&gt;“也行，你想怎麼做都好，到時候看情況再找你談談。&amp;quot;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;然後他又回到一如往常的沈靜了，獨自回到沒人注意的角落，默默地看著我做事，繼續地當著一個理解我一切的摯友。「你可以不用喜歡自己的全部，只要能夠找到與他們相處的方式」之前看見這句話又回到了我的心頭，在這次互動之後，或許我又多理解了這句話背後的意思了吧。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wei-lai-gen-ren-xiang-chu-de-shi-hou-wo-bu-xiang-yao-bu-shi-qu-de-yi-zhi-tan-zi-ji-de-zhuan-ye&quot;&gt;未來跟人相處的時候我不想要不識趣的一直談自己的專業&lt;&#x2F;h2&gt;
+&lt;p&gt;突然發現在聊天時會有一個很特殊的人種存在，這種人講話時會盡量扯到自己的專業內容，成天談論學習是件多麼有趣的事情，與這類人聊天時會讓自己發現自己擔任的角色只會是... 牆壁，主要的用途就是讓他背誦出一些沒人理解的知識而已。此外，這種人除了這些東西之外就沒什麼好談的了，可能是因為他成天鑽研在自己所愛的事情之上無暇顧及其他。但稍微反思一下我自己，是不是我也是這種人呢? 整天都跟別人說電腦科學是件多有意義的事情，然而我實質上就只是單方面向別人展現熱忱，並沒有真的關心到別人的生活跟他們的想法。我想自己有必要要去多充實一些體驗跟故事，並在聊天時多多加入一些別人會感興趣的東西。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zhe-xue-ke-xiao-fan-si-tan-guo-wang-de-xie-zuo-gen-li-shi-jiao-yu&quot;&gt;哲學課小反思 - 談過往的寫作跟歷史教育&lt;&#x2F;h2&gt;
+&lt;p&gt;這週有機會讀到 Decarte(笛卡爾) 的文章 “Meditation II: On the nature of the Human Mind, Which is Better known than the body”，這篇內容相較這學期讀的其他文章平實許多，但是卻直接敲到了很多有趣，足以改變價值觀的問題。閱讀的同時我一直感覺到這篇文章的討論內容好像跟過去學到的東西有關甚至雷同，直到最後我才發現這篇文就是 &amp;quot;Cogito, ergo sum.”(我思故我在) 的出處。除了驚喜之外，回想的同時我還有點激動，這是種不滿跟憤怒，多半是針對過往的教育的膚淺而發，因此就開始打了一篇小文章:&lt;&#x2F;p&gt;
+&lt;p&gt;高中時的我為了應付學測，基本上只要熟讀課本，知道各個歷史事件的發生順序、年份跟緣由就好，半年的努力之下，考試時社會科也順利接近全對，拿了滿分，但過了四年後的現在我卻什麼也都不記得，社會科中對於笛卡爾的記憶也僅在他提出了”我思故我在&amp;quot;這樣的名言。背景跟實際論述的內容教材基本上不提。四年後的現在，有幸讀完原文的我認為，相較於這句名言之外，笛卡爾在文章中的思路跟提出的想法、才是真正能夠在學生生命中深刻留下的知識跟養分。這麼重要的東西，為何我高中時的歷史教材會選擇忽略呢? 我心目中的歷史教育應該著重在讓人理解一個事件在時間上的廣度，還有嘗試用不同角度來解釋，並且能夠自己下出一個最符合邏輯的評斷。這樣的教育中，需要的是理解並且批判式的思考，相對於只有闡述過程，我們的歷史教育是不是少了批判式思考的那一大塊? 因此，我認為我們高中時學到的歷史只是半調子的歷史。&lt;&#x2F;p&gt;
+&lt;p&gt;我心目中國文這個課目的目標是讓大家在擁有文學素養的同時，能夠向社會大眾撰文清楚表達自己的獨特觀點。但我有限的記憶中，國文總有那麼一塊令人生厭的部分 - 文章寫作，意即作文。大家都不喜歡寫作文，因為短短的一篇作文卻總是集合了一個人諂媚跟虛假的總和，這個現象，可以從我們大學學測的作文看出個端倪。在長篇作文的出題中，大考中心每年求新求變，但卻不知道為什麼每每在考後的新聞稿上總希望考生不要犯賤，整天都寫家人寵物去世等等千篇一律的內容，但如果觀看過往大考公布的學生範文，大多仍都符合這樣的套路: 開頭辭藻堆砌，多多描寫，補上一點簡單到智障都想得出來的觀點跟反思，考完準備爽拿高分。如果認真審視作文的命題內容，多半就是希望考生根據自身生命歷程來描述特定的抽象主題，這種文章在撰文心思上的重點就是如何安排敘事的方法，還有怎麼把生活中的平常小事寫的唯美 — 作文題目的選定就已經將主題大大侷限，撰文就是八股，甚至全然都是抒情文，比歷史上的八股還不如，在這種情況下能寫好的人不是對於身旁事物觀察細微，就是隨便扯出一個不存在的自身故事，但在這之外對於把大半光陰花在學習的十八歲少年來說，如果真要寫一個自身經歷過最深刻的生命體驗，莫過於描寫家人的死別，在這種簡單的推理之下，大考中心能有什麼資格要求學生在內容上有所新意?&lt;&#x2F;p&gt;
+&lt;p&gt;以我自己高中時的經驗，老師就會建議我們直接去看範文怎麼寫的，直接學習別人的寫法，如果第一線的老師就是希望我們背稿，多看別人怎麼堆砌文章。教育如此，大考出題也如此，大考中心有什麼資格期待改變? 然而，&amp;quot;人在屋簷下，不得不低頭&amp;quot;，我並不認為這是教師的問題，他們哪位不是希望學生擁有璀璨的未來，針對這個問題，我們必須探究是什麼心態使這些老師希望學生如此? 根據他們的初衷來探討原因，追根究底，就是教師們不希望因為一場作文考試耽誤了學生的未來。「身處高中的各位都是未來的棟樑，絕對不能因為一場考試而選不上自己的志願，所以要想辦法在考試時拿高分，絕不能因這種小事而耽誤了人生。」這應該就是教師心中最真實的話語，但這樣的教育薰陶下，即便我們沒有在考試中被耽誤，台灣的未來還是注定會裹足不前 — 因為在缺乏自我思考能力的情況下，大眾注定沒辦法認知事物的真假，更何況我們正處於十分危險的情況，現今的媒體在平衡跟取材上出了問題、對岸的政權想辦法對我們的人民進行意識洗腦，但國民的水準並沒有達到能夠辨識真相的階段。如果對此沒有警覺，也沒有任何審判真假的能力，在不需要談國防硬體的前提之下，我們的國家處於險勢。&lt;&#x2F;p&gt;
+&lt;p&gt;哲學，談的就是虛幻 -正因為是無法透過科學來解決，才會變成哲學的範疇。但在學習哲學的同時我們能學習到如何批判式思考，如何有邏輯的敘述並佐證自己的觀點，並且在實踐的同時提高我們思想上的敏銳跟自由。我認為史學與作文教育的核心很大一部分跟這部分重疊，而且也是因為現今教育未滿足這樣的需求，這才會讓我覺得我們的教育是如此表象。如果想要改正這種問題，應適當的將哲學引入教育的一環，作為建議，在作文部分，我們應改變過往大考作文的命題方向，改採以議論而非抒情導向，並以邏輯的合理性與論述事件的強度為評斷標準。在史學教育方面，我們應該簡化過多的年代識別與年份背誦，帶領學生以更具深度與更多角度來探討單一歷史事件，提高歷史事件對於學生的切身性。我認為這才是當前的台灣教育缺乏的其中一點。但我心中仍是覺得，就像感冒治病，我所觀察到的現象都只是某些更根本性的問題所導致的結果，直接讓國家強行更改教育內容並沒辦法解決問題，因為參照近年來的教育改革，這種行為的結果往往只是增加考生負擔，即便推行也沒辦法真正的深入人心，除了給出表層改善的建議以外，我們必須再進一步思考，到底是什麼原因促使我們教育沒辦法真正地打入學生的心頭中。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xu&quot;&gt;續&lt;&#x2F;h2&gt;
+&lt;p&gt;恩，這兩週大概就只想了這些，關於這個問題，剩下的內容都還在思考中，畢竟作業這麼多，不可能成天都在想這個問題嘛~ 只能留給之後繼續寫了。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;bu-zhi-dao-wei-shi-mo-zhe-zhou-xiang-fa-bao-peng-jiu-ba-sheng-xia-lai-de-liu-dao-xia-zhou-hao-liao&quot;&gt;不知道為什麼這週想法爆棚，就把剩下來的留到下週好了&lt;&#x2F;h2&gt;
+&lt;p&gt;畢竟每天都有一堆事情要做，真的要把所有有趣的想法都記錄下來真的太難了。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week5,6 - 作業可以寫不完，但球不能不打</title>
+		<published>2019-02-16T00:00:00+00:00</published>
+		<updated>2019-02-16T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-5-6/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-5-6/</id>
+		<content type="html">&lt;p&gt;寫這裡的作業就像吃辣椒，伴隨的後勁不留情直接衝上腦門，嗆鼻、痛苦，但仍要強硬忍受過去。甚至扭曲自己的想法，批迫自己打從心底認為這些東西是營養又好吃，即便不是，至少還是世界有名的辣椒啦。
+沒想到竟然會被作業爆擊到沒時間紀錄生活，強迫把兩週放成一週，真的是小看這裡了。&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;這週開始上課之後，突然發現老師的口音不見了，很高興自己已經習慣了。&lt;&#x2F;p&gt;
+&lt;p&gt;2&#x2F;5~2&#x2F;16&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;nian-ye-fan&quot;&gt;年夜飯&lt;&#x2F;h2&gt;
+&lt;p&gt;第四週才提到沒吃到年夜飯，結果電工一起來的交換生馬上就開約。
+第五週的週末，大家一起到電工的神奇家裡一起吃飯，這次出來玩下定決心不想講任何英文，玩了一點小遊戲，還蠻舒適的。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-5-6&#x2F;eat.jpg&quot; alt=&quot;eat&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;da-qiu&quot;&gt;打球&lt;&#x2F;h2&gt;
+&lt;p&gt;來到UIUC之後發現這裡的人都比台灣大上一個尺寸，以我自己的身高181公分來說，在交大算是中偏高，但到了這邊後自動降級成中等身高，而這邊身高187以上的人比台彎常見很多。身高因素，這裏理所當然也擁有不同的球風: 後排攻擊、跳躍發球都比台灣常見不少。(甚至連女生也打男網的後排攻擊) 第一次看到真的是驚訝萬分。
+不過這裡的男網高度綁的比交大低上一點，所以每個人看起來都是飛起來打球。
+提到後排攻擊，不同球種的暗號跟代稱當然是隨著國家地區而有相異，每次打球第一球接噴的時候最常聽到隊友喊出 Pipe，究竟Pipe是什麼呢? 就是後排正中間的攻擊。這週隨手問了一下其他兩種，得到的資訊就是Red跟Blue。台灣的叫法很簡單，老大、老二、老三。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-5-6&#x2F;volleyball_pipe.jpg&quot; alt=&quot;vol-pipe&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;過去在系隊練習發球時總是被要求穩定為重，講的有理，但我在穩定之後就為了追求穩定而不去嘗試開發新球種，我認為自己有點偏安。一直以來都想嘗試跳發，但攻擊時因手腕並不靈活，很難打出下旋球，大約在交換的前半年就已經開始認真訓練手腕，到這邊之後發現雖然成功率不高，大家仍舊很熱衷在使用跳發，
+我很欣賞這種勇於嘗試的心態，所以也開始在練習時加上跳發。甚至在比賽時使用力量稍弱，但穩定一點的跳發。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;gan-mou&quot;&gt;感冒&lt;&#x2F;h2&gt;
+&lt;p&gt;來這邊後第二次感冒，其實這次也是因為一些白癡因素，因爲工程圖書館 Grainger 的週三咖啡特價拉!大杯的拿鐵只要2.5元(75台幣)，實在抵抗不了打折就直接衝下去了啊!!，剛好前幾天睡很少，喝完咖啡之後又硬是到凌晨五點才睡得著，醒來之後還面對著一連串的期中考跟打球，結果不出室友預料，馬上又生病了。雖然我的感冒差不多一個週末就快痊癒了。但是這個週末的寫作業效率大大降低，也為了養病整個週末沒出門，有點虧到。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;qiu-hou-za-ji&quot;&gt;球後雜記&lt;&#x2F;h2&gt;
+&lt;p&gt;週四和學長姊打完球之後就去找香檳附近的飲料店吃吃喝喝。
+情人節這天，考試開頭，打球吃東東聊天收尾，意外發現這種時光蠻愜意的。希望回台灣之後能更珍惜這種時間，多多跟人交流，多打球。
+這個禮拜開始認真打起了未來出國工作的念頭，但是喝飲料的時候聽著身邊學長姐們親身分享的經歷，想像一下他們的生活，就覺得好孤單啊... 要是沒有現在的這群室友，打球的夥伴還有交換生的朋友相伴，我覺得自己一定會孤單到死。因為實在太孤單了，而且喝完飲料之後就要回去趕哲學課的作業，所以就先暫時擱置不想這個問題了。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jian-tou-fa&quot;&gt;剪頭髮&lt;&#x2F;h2&gt;
+&lt;p&gt;來美國之前就已經被台灣的理髮師警告，兩邊剪頭發的style不大相同，讓我很謹慎的在幾個月前拍了自己的相片起來準備參考。來了美國一個月，頭髮真的長到受不了，於是在網路上找了一間評價不錯的理髮店，頂著寒風走了一大段路走了過去。師傅是位很親切的黑人女士，看完照片她就說了一聲ok，一邊聊天一邊剪著頭髮，我想她也是不熟悉台灣剪髮方式，但還是硬著頭皮剪著，最後在聊天聊到一半冷不防爆出一句「You&#x27;re gonna look like american ~~~~~~!」「幹!!!!!!!!!!!!!」看了一下成果，原來照片只是帶心安的，大概是剪到一半發現苗頭不對，開始自由發揮。反正入境隨俗，而且這也不是最恥的一次，可能接下來的日子都需要髮膠伴隨哈哈。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ji-hua-chu-you&quot;&gt;計畫出遊&lt;&#x2F;h2&gt;
+&lt;p&gt;我怎麼看自己的同學作業量都還好，只有我的課業重到爆炸，不過這樣下去不是辦法，必須要想辦法開始在學期間找個週末前往芝加哥，要開始更認真提早把作業趕完，上課進度追上，車票跟旅館訂起來，然後去芝加哥晃晃!!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;you-guan-shi-xi&quot;&gt;有關實習&lt;&#x2F;h2&gt;
+&lt;p&gt;在這邊上課一陣子之後，發現這邊的人特別熱衷在找實習跟工作，可能是因為到時候應徵工作時如果沒有實習經驗的話，公司不太喜歡收，又或者是這邊的實習收入水平很高(大公司單算實習的時薪會比正職高)，跟著一起組隊修課的學姊聊完天後，就趁著買咖啡睡不著的那晚衝出了履歷表，簡單投了幾間公司，然後，不得不說，履歷這種東西真的是越寫越上手，第一次在申請交換時前前後後花費一個多月，但隨著這段時間的不停紀錄想法跟寫文字，已經漸漸懂得怎麼表達自己了!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ke-cheng-xiao-fa-xian-shou-yu-fan-yi-yuan&quot;&gt;課程小發現 - 手語翻譯員&lt;&#x2F;h2&gt;
+&lt;p&gt;這是我修的某堂課，ECE391，算是作業系統實踐系列的課程，使用到的教室是ECE系館最大間的講堂，這邊的課程有一個神奇小亮點: 竟然可以標配即時的手語翻譯!!
+有時候上課無聊也會看看她到底是怎麼翻譯的，看到打出對應的符號都會覺得十分有趣。翻譯員是一位很開朗的女士，有時候老師講一些笑話的時候她會直接崩潰、爆笑出來甚至直接抱著肚子沒辦法反應，非常可愛。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-5-6&#x2F;interpreter.jpg&quot; alt=&quot;手語翻譯員&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;mei-zhou-fen-xiang&quot;&gt;每週分享&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;1-ma-li-ou-pei-ni-he-yi-bei-hang-hai-wang&quot;&gt;1. 馬力歐陪你喝一杯 - 航海王&lt;&#x2F;h3&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;soundcloud.com&#x2F;drink-with-mario&#x2F;s3ep65-afra&quot;&gt;S3EP65 航海王｜Afra：你不可能在所有的想望裡頭，都沒有任何的犧牲&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;soundcloud.com&#x2F;drink-with-mario&#x2F;s3ep66-afra&quot;&gt;S3EP66 航海王｜Afra：每個人都應該去航海一次，會剖開你以為的世界樣貌&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;你想象中的退休生活是什麼呢?當你不用再為了生活而煩惱。 不需要為了金錢而去逼自己做著自己不喜歡的工作，如果妳不做事也不會有人逼你，所有的時間就是躺在公寓的地板裡面望著天花板上的電風扇，看著從窗戶灑向天花板的陽光從正中午一陣陣閃爍到傍晚的暗紅。聽著時鐘固定的聲響，算著步步流逝的光陰，就算光陰正在緩慢流逝，也好像在沙灘中一手手抓著無限的沙子從指縫間流去，伸手一抓又是一次無窮盡的時間重新上演。
+你會覺得無聊嗎? 在這個時候你到底想做的是什麼?
+我認為雖然我們還年輕，但最好就是讓自己的心靈提早進入退休狀態。盡可能讓金錢從生活的目的中脫離。
+我想一個人騎機車環島，上大雪山，到各種沒想像過的地方晃，我想跟著一群聰明有趣的人一起出去創業，享受一起計畫事情的美好。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;2-ni-zhong-liao-wu-hua-ta-ren-wo-du-ru-he-liao-ni-wei-shi-mo-huan-de-mu-ma-cheng-shi-ma-kuai-le-da-xue-happiness-university&quot;&gt;2. &lt;a href=&quot;https:&#x2F;&#x2F;www.youtube.com&#x2F;watch?v=8sf2F0xGEOs&quot;&gt;你中了物化他人「我都如何了,你為什麼還...?」的木馬程式嗎?- 快樂大學Happiness University&lt;&#x2F;a&gt;&lt;&#x2F;h3&gt;
+&lt;p&gt;回歸單身後，不少時間進行自我的心靈審查與清算。檢討自己是不是犯了一些與自己期望相反的思想或行為? 即便行為上不曾出現，也想努力檢視腦海中是否殘留任何一點點這樣的想法。
+人並非物品，不像玩遊戲一般解了什麼任務或是打了什麼王之後就能得到寶物。雖然我們好像多少都脫不了物化他人的思想，但重要的是，練習在這種念頭出現的同時意識到對方也是個人，有自己的故事跟理由，多多設身處地著想。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week4 - 不像過年的過年</title>
+		<published>2019-02-05T00:00:00+00:00</published>
+		<updated>2019-02-05T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/uiuc-week-4/" type="text/html"/>
+		<id>https://ianchen.tw/posts/uiuc-week-4/</id>
+		<content type="html">&lt;p&gt;這週多囊括了個星期一，因為作業實在是寫不太完。但還是冒著作業爆炸的風險跟壓力開始打起了文章。
+今天只吃了一餐，打完文章已經凌晨兩點，而且隔天早九的課，還要趕一整天的作業。QQ&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;1&#x2F;28~2&#x2F;4&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;cheng-ji-de-qu-she&quot;&gt;成績的取捨&lt;&#x2F;h2&gt;
+&lt;p&gt;ECE391 的作業量有點喘不過氣，在找組員時重新評估了一下這個學期的取捨
+MP(Machine Problem )作業 &amp;gt; assignment &amp;gt; 運動 &amp;gt; 課本進度，大概就是這樣吧&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;supoer-bowl&quot;&gt;Supoer Bowl&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;uiuc-week-4&#x2F;super_bowl.jpg&quot; alt=&quot;super bowl&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;這個週末趁著作業寫到太燒腦的同時一起去參加了活動，一起看美國超級杯足球決賽，不過基本上三個多小時都是在跟不同人聊天，也算是蠻有趣的。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;li-shi-shang-de-leng-du&quot;&gt;歷史上的冷度&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;uiuc-week-4&#x2F;temp.jpg&quot; alt=&quot;temp&quot; &#x2F;&gt;
+&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;uiuc-week-4&#x2F;coke.jpg&quot; alt=&quot;coke&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;芝加哥來到攝氏零下四十度，香檳也不惶多讓到了零下二十度，突發奇想就把可樂放到戶外，一瓶炸掉，另外一瓶倖存的就長這樣了，好喝。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xiang-xiang-zhong-de-chai-ju&quot;&gt;想像中的差距&lt;&#x2F;h2&gt;
+&lt;p&gt;2&#x2F;4星期一，趕了整週末的作業，晚上準備離開Lab時走進一位打球新認識的中國同學，劈頭一句「你今晚要做啥呢? 」，他的問題讓我整個人愣住，如同腦中斷掉的線突然接上，原來今天是台灣的除夕。新的一年就要開始，新的希望，新的一年。&lt;&#x2F;p&gt;
+&lt;p&gt;Demo後準備搭公車回住處，料理今天的第一餐。一個人走在街上，把耳機開到最大聲放縱地播著Leo王的無病呻吟，等公車的空擋時望著資工系館發呆，突然回想起交換前曾在網路上先查過這個地方，我就站在那個攝影機的視角中望著一樣的景色。半年前的我曾想像著自己每天會在Siebel裡面找一個大位置寫自己的作業跟發呆，結果最後選到的課反而沒有任何一堂是在系館上。當初也曾想過自己在美國的每天生活，以為會是完全不同的生活，但實際生活起來卻是種唐突的熟悉感。看著自己連半年後的真正樣子都無法預見，我可能永遠真的都不知道自己的未來會是什麼樣吧?&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;uiuc-week-4&#x2F;fried_rice.jpg&quot; alt=&quot;fried rice&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;今年交換前的兩個月奶奶過世。半年前還在跟他談論著自己申請上的五年碩士是什麼意思，忙著忙著他就離開了。以往以奶奶作為中心的團圓飯就這麼取消，改成全家一起去山裡郊遊。當然，除了我之外。&lt;&#x2F;p&gt;
+&lt;p&gt;這周走在校園中，發現身旁的同學都比我富裕不少，圖書館放眼望去近九成的同學都是使用Mac，在校園中也有將近1&#x2F;3的人走路會戴耳機，不乏上萬元的款式。校園中真的充滿不少家境富裕的同學。再加上之前打聽到這間大學的學費，我真的認為美國的大學不是給一般人念的，能夠享受這種資源跟教育，我發自內心的感激。
+這裏同學的才智水準我認為跟交大是差不多的，但是相差最大的就是學校的資源量，光是可以自由運用的討論空間就已經多到難以置信，圖書館舒適到假日會爆滿，看著大家座在圓桌上一同開發，高談著自己的小組作業，我不禁想到交大資工並沒有這樣自由討論又舒適的空間，要是多把我放在這種環境跟資源栽培，我早已成為截然不同的人。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;gao-ji-ren-lei&quot;&gt;高級人類&lt;&#x2F;h2&gt;
+&lt;p&gt;初到學校的第一個星期我曾經看見路邊的一個廣告，內容談到有些UIUC的同學們認為自己並不屬於這裡。光是比對著自己跟同學的生活就是如此，因為當他們正在為學費、生活費苦惱、身兼三份工的同時，他的同學卻可以每晚上酒吧狂歡，用著他用不起也不敢用的東西。專心唸書是種奢侈。&lt;&#x2F;p&gt;
+&lt;p&gt;在現代的社會中，大學扮演著多重角色。從身旁的同學與教授討論的內容，我能更強烈的感受到相較於交大， UIUC 作為推動國家科技、人類智慧的那份野心跟使命感。同學們的能力不只都是各個領域中的菁英，在這裡的人也即將成為社會上的&amp;quot;高級人類&amp;quot;。&lt;&#x2F;p&gt;
+&lt;p&gt;現代社會中，大學不只是科技發展的重鎮，說的直白些，大學同時還扮演著非常有效的社會階級翻轉器，透過學歷幫助社會底層的人向上翻身。&lt;&#x2F;p&gt;
+&lt;p&gt;我對UIUC還不太熟，不知道他們在階級翻轉氣的角色扮演得如何，但回想起來前些日子看見成大的教授們分享自己是如何扛下這個社會責任，在大學選才時努力選進一些初看普通，但骨子裡十分優秀的同學入學，&amp;quot;如果我跟他有相同的處境，我能表現的跟他一樣嗎?&amp;quot; 教授們提到這是他們的評斷標準。今天的我回頭想想這些教授的所作所為，深感佩服。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;mei-zhou-fen-xiang&quot;&gt;每週分享&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;1-she-s-danni-liao-yi-liao-wo-gao-kao-de-shi-bai&quot;&gt;1. &lt;a href=&quot;https:&#x2F;&#x2F;youtu.be&#x2F;dYroDazRW7I&quot;&gt;She&#x27;s Danni - 聊一聊我高考的失敗&lt;&#x2F;a&gt;&lt;&#x2F;h3&gt;
+&lt;p&gt;這是這週突然發現的頻道，作者應該目前正在美國amazon工作。碩士時從中國到美國念書，相識現在的老公，一起打拼，我很喜歡她講話特質跟神韻。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;2-fang-tan-xing-fu-ding-ge&quot;&gt;2.訪談: 幸福定格&lt;&#x2F;h3&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;soundcloud.com&#x2F;drink-with-mario&#x2F;s3e51&quot;&gt;馬力歐陪你喝一杯 S3E51《幸福定格》導演｜沈可尚(上)&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;soundcloud.com&#x2F;drink-with-mario&#x2F;s3e52?utm_source=listennotes.com&amp;amp;utm_campaign=Listen+Notes&amp;amp;utm_medium=website&quot;&gt;馬力歐陪你喝一杯 S3E52《幸福定格》導演｜沈可尚(下)&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;你覺得什麼是婚姻的全部，我認為是溝通還有生活、或許還有一點點的情趣。聽著導演的對於拍片過程跟自己成長歷程的分享，我還突然覺得能夠做著自己喜歡的事情是種奢侈的幸福。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week3 - 步入正軌</title>
+		<published>2019-01-27T00:00:00+00:00</published>
+		<updated>2019-01-27T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-3/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-3/</id>
+		<content type="html">&lt;p&gt;從這週開始生活開始上軌道了，課業跟時間安排都漸漸穩定下來。可能心態開始放鬆的緣故，自己的想法比較多了一點。
+回頭看了一下前幾週寫的日記，發現冗字過多，自己都看不下去，畢竟都是在兩三個小時內打出來的文章，想到什麼就打什麼，沒太多時間回頭校閱，之後會盡量抽出時間改改。&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;1&#x2F;22 ~ 1&#x2F;27&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yi-zhou-ji-shi&quot;&gt;一週記事&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;分散式系統大升級&lt;&#x2F;p&gt;
+&lt;p&gt;本來課業已經夠重，但是分散式系統上課的時候有個陌生人來找我組隊，希望能夠一起寫程式作業，於是我就把這門課改選修成研究所的四學分版本，心底暗自覺得支撐不住，但還是試看看好了。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;第一次影印&lt;&#x2F;p&gt;
+&lt;p&gt;這周因為圖論需要用 Latex來寫作業的答案，所以第一次用到圖書館的影印系統，這邊的影印系統比交大先進一點，要先把錢存到學校內部的 &lt;code&gt;illini cash&lt;&#x2F;code&gt;(可以用信用卡付費) 之後，在學校所有的影印花費都會從那邊扣錢。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;第一道義大利麵&lt;&#x2F;p&gt;
+&lt;p&gt;突然想吃之前大姐煮的義大利麵，一時興起就向他詢問食譜想自己來做做。
+豬培根、洋蔥、洪蘿蔔、番茄、牛奶、起司、奶油。簡單的義大利麵醬裡面放了這麼多東西，也是第一次知道原來番茄的酸味要用牛奶來中和，煮出來的味道真的很棒，讚嘆大姐!&lt;&#x2F;p&gt;
+&lt;p&gt;{% asset_img spaghetti.jpg %}&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;聊天&lt;&#x2F;p&gt;
+&lt;p&gt;就算最近的課業真的有點重，我還是每週會抽一點時間跟不同的人聊天。可能是美國的當地學生、美國的國際生，或是來美國留學的台灣人。一方面是練語言，另一方面是想知道大家是怎麼想事情的。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;整理電腦&lt;&#x2F;p&gt;
+&lt;p&gt;新的學期到來，把原本雜亂的電腦桌面都跟瀏覽器都整理過一次，移除掉不少已經不再維護的專案，退訂之前每日電子報，希望不要有太多干擾、思緒能夠再有條理一點，象徵在這裡的生活步入軌道，要專心生活了。
+&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-3&#x2F;desktop.jpg&quot; alt=&quot;desktop&quot; &#x2F;&gt;
+&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-3&#x2F;browser.jpg&quot; alt=&quot;browser&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;zuo-ye-gen-yue-du-xi-guan&quot;&gt;作業跟閱讀習慣&lt;&#x2F;h2&gt;
+&lt;p&gt;開學第二週神奇的作業量就下來了，登!下週要交四份作業呢!
+我已經可以想到學期中每一科都用盡全力出作業的樣子了。
+為了應付這樣的課業量，前兩週曾經嘗試過每天六點爬起來唸書，但卻效果不彰，加上常常晚上打排球打到11點，隔天根本爬不起來，只好再嘗試其他辦法。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;quot;Don&#x27;t work hard, work smart.&amp;quot;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;對我而言，讀書並不是創作，不需要針對同一件事保有長時間的高專注，讀書對大腦而言反而像是執行例行工作，是單純 &lt;code&gt;理解&lt;&#x2F;code&gt;-&amp;gt;&lt;code&gt;整理&lt;&#x2F;code&gt;-&amp;gt;&lt;code&gt;理解&lt;&#x2F;code&gt; 的持續循環。我認為提升讀書成效的方法只有一個 - 提高總專注時間。&lt;&#x2F;p&gt;
+&lt;p&gt;有一種管理時間的技巧叫做 &lt;code&gt;Pomodoro Technique(番茄鍾工作法)&lt;&#x2F;code&gt;，大致的意思就是以25分鐘為做事情的時間單位，在足夠休息的前提下，持續切換工作使大腦不疲乏。
+這周強制在讀書時實施蕃茄工作法來提高自己的總專注時間。此外，為了降低切換工作的手續，把大部分的筆記都轉放在平板電腦上，買了筆記軟體(Notablilty)來換取更高的效率(不用花時間重新編排筆記)。&lt;&#x2F;p&gt;
+&lt;p&gt;唸書時並不是要安靜才好，從研究看來，搭配音量適中的環境噪音更能提高大腦的專注，有鑒於最近跟當地學生聊天時常常跟不上對方的語速，還有觀看各種語言大神同學的心得分享下，選擇在讀書時播放小聲的英文新聞當作環境噪音，分心時還能順便練英聽。&lt;&#x2F;p&gt;
+&lt;p&gt;P.S. 其實最近的紀錄都是在休息時記錄下來的文字，往往寫個幾分鐘大腦就放鬆到能繼續工作的階段了，效果拔群!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ipals-liu-bing&quot;&gt;iPals 溜冰&lt;&#x2F;h2&gt;
+&lt;p&gt;這週第一次跟iPals一起到溜冰場溜冰，幸好小學時有參加過兩年的直排輪校隊，大概扶著老人拐杖繞場二十來圈之後就可以自由地在人群間穿梭了。
+中間跌倒時不小心又用手掌撐地板，手腕又受傷了(汗)。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xiang-gen-ta-men-yi-yang&quot;&gt;想跟他們一樣&lt;&#x2F;h2&gt;
+&lt;p&gt;這週在打球時又認識了一群從台灣來 UIUC 讀書的研究生，有天晚上打完球之後收操時與他們一同聊天，他們從字句中流露出的自信跟跟價值觀讓當下的我感到自己心中一直躁動不安，一開始還不明確，直到認真把自己沈浸在那個狀態之後，才默默產生了這樣的念頭 : 「我想跟他們一樣，有相同的目標，相同的煩惱。」這個種情緒難以歸納，但稍微沈澱之後我能說這是一種對於自身現狀的不滿，潛伏在灰燼中暗自燃燒的渴望。
+這是我這幾年來是第一次感受到如此強烈的衝擊，發現這些與我年齡相仿，親切的同學與我之前竟然有種決定性的界線存在!&lt;&#x2F;p&gt;
+&lt;p&gt;回憶起先前聽 &lt;code&gt;UX coffee&lt;&#x2F;code&gt; 的 podcast 時聽到，人的學習可以用 &lt;code&gt;自我意識&lt;&#x2F;code&gt; 與 &lt;code&gt;自身能力&lt;&#x2F;code&gt;兩個軸分劃出四個不同的象限來代表不同的學習階段，由始至終是 : 無意識的無能, 有意識的無能, 有意識的有能, 無意識的有能。&lt;&#x2F;p&gt;
+&lt;p&gt;我認為造成這種界線，決定性的因素來自於我們其實處於不同的階段之中。我無法辨認他們的狀態。但是我深深知道自己到了大四的現在，已經在第二跟第三階段中徘徊許久，找不到自己最大的問題，遲遲無法跨入下個階段。&lt;&#x2F;p&gt;
+&lt;p&gt;交換學生是我大學的最後一學期，我的碩士班也已經幾乎確定是在交大資工繼續下去了。目前的我並沒有像他們這麼強的研究能量，英文的能力也不足以自在的跨到國際，甚至我在大學時學了一堆東西，到現在卻也無法明確的告訴別人自己到底會了些什麼。
+我想跟他們一樣，但其實最終是希望能跨過自己的障壁，我必需要改變生活的態度、方法，有意識的了解跟掌握自己所學，STRUGGLE TO LEARN。&lt;&#x2F;p&gt;
+&lt;p&gt;我要在這半年把英文練好，並透過離開自己熟悉環境來養成全然不同的習慣，每天努力地念書、跟人交流，變成更獨立的人，趁著一個人的孤獨時光產生更多對自己未來的想法，Cheers!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;mei-zhou-fen-xiang&quot;&gt;每週分享&lt;&#x2F;h2&gt;
+&lt;p&gt;這週沒有時間拍建築物，所以就分享一些我覺得不錯的東西&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-the-value-of-philosophy&quot;&gt;1.  &lt;a href=&quot;https:&#x2F;&#x2F;web.ics.purdue.edu&#x2F;%7Edrkelly&#x2F;RussellValuePhilosophy1912.pdf&quot;&gt;The Value of Philosophy&lt;&#x2F;a&gt;&lt;&#x2F;h3&gt;
+&lt;p&gt;Russell 寫的文章，這是上週哲學課討論時用到的選文。主要探討哲學的價值與他的意義。
+為什麼我們應該探討那些不切實際的問題? 難道人生不能實際一點，需要什麼就拿什麼就好嗎? 我想到曾經跟前女友討論過這個問題，「Because we act what we think.」 一個二十多歲的年輕人缺的並不是思考能力，而是對事情抱有自己的觀點跟切入角度。這篇文章內主要論述，只有持續思考跟提問，才能保有自己對這個世界的好奇心，才能讓心靈不被肉體限制住。對我而言，唯有如此，才能活得像是個真正的人。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week2 - 上課第一週</title>
+		<published>2019-01-21T00:00:00+00:00</published>
+		<updated>2019-01-21T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-2/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-2/</id>
+		<content type="html">&lt;p&gt;上課第一週開始，事情真多，但很充實。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-2&#x2F;front_img.jpg&quot; alt=&quot;grainger library&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;1&#x2F;14 ~ 1&#x2F;21&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xin-ke-biao&quot;&gt;新課表&lt;&#x2F;h2&gt;
+&lt;p&gt;開學第一天在校園中趕往溜冰場的路上就直接對溜冰沒了興致，想著可能自己想要多打點排球，還有之後比較忙的時候可以有一些彈性時間使用，果斷翹課掉頭前往體育館(CRCE)練起了自己的排球。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-2&#x2F;courseTable.jpg&quot; alt=&quot;course table&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;這份課表應該就是最後的樣子了。
+話說這邊的人討論課都是使用課程代碼，每個課程都會有一個好記的永久課號。
+最前面是開課系所，第一個數字大略對應到適合的程度，1就是給大一，4是給大四或研究所，5就是最高等級(研究所)。
+相信只要在選課時多花一點時間瀏覽，&lt;code&gt;CS225&lt;&#x2F;code&gt;，這類代號所代表的課程就可以很快速進到腦海。&lt;&#x2F;p&gt;
+&lt;p&gt;這一個星期上完課之後大概推估每堂課程對我的壓力排名從難到易應該是:
+&lt;code&gt;ECE391&lt;&#x2F;code&gt; -&amp;gt; &lt;code&gt;PHIL100&lt;&#x2F;code&gt; -&amp;gt; &lt;code&gt;MATH412&lt;&#x2F;code&gt; -&amp;gt; &lt;code&gt;CS425&lt;&#x2F;code&gt;
+本來以為 CS425I(分散式系統) 會是很大的壓力，但我選擇修習給大學生的三學分版本(研究所四學分)，所以這堂課可以不用寫程式作業，沒有程式作業的CS課程...? 只能開頭先說個大話: 「 根本就是在養生吧!」&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;shou-zhou-shang-ke&quot;&gt;首週上課&lt;&#x2F;h2&gt;
+&lt;p&gt;上課的第一週就感受到了衝擊，&lt;code&gt;分散式系統&lt;&#x2F;code&gt;、&lt;code&gt;數學&lt;&#x2F;code&gt;、&lt;code&gt;哲學&lt;&#x2F;code&gt; 三堂課的老師都會指定每次上課前要讀完的範圍，而每次的上課時間就是一邊總結課本的內容一邊向同學丟出問題，變成沒讀書就是到課堂上浪費時間，就算沒出作業還是會有不小的進度壓力。
+我認為這是不錯的做法，首先是學生能夠知道老師下次的上課內容跟範圍，能比較有目標性的閱讀，在上課時邊帶討論邊總結時也因為所有人都看過課本，課間時即便老師沒有完全提出內容，學生也能快速抓出問題的全貌，增進討論效率。但，這些都是建立在教師能精準掌控自己進度的前提之上。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-2&#x2F;reading.jpg&quot; alt=&quot;reading&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;zhe-xue-dao-lun&quot;&gt;哲學導論&lt;&#x2F;h3&gt;
+&lt;p&gt;講師是位白人中年女教授，
+上了兩堂課之後就開始認為選這門課是半年來最棒的決定了，課程閱讀的選文很具有啟發性，講師的口條跟個性很好、講話語調很吸引人，而且講師能夠在保持高水準的口條還有同學參與討論的情況下，非常自然的把教學速度控制到50分鐘剛剛好。聽他上課真的是種享受。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;tu-lun&quot;&gt;圖論&lt;&#x2F;h3&gt;
+&lt;p&gt;開課老師是一位充滿熱忱、年輕的女教授，講話的時候整個人的眼睛都會發亮，講話帶有一點不是標準美語的口音。
+課程安排的閱讀進度讓我小有壓力，但功課內容十分巧妙，上課也十分有趣。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;fen-san-shi-xi-tong&quot;&gt;分散式系統&lt;&#x2F;h3&gt;
+&lt;p&gt;講師是一位身材豐餘的白人男教授，教室很大間，但老師講話有點含滷蛋，這一般來說不是個問題，但因為還沒完全適應他的講話特色，加上又是全英文讓我有時候會突然跟不上他的講課內容。
+上課有簡報，但如果照講課內容來看是有思路卻沒大綱的講法。讓人聽完整堂課的時候會抓不太到重點。
+加上這裡每堂課程都會有對應的課程網站提供給同學討論跟拿取資料。都開學一週了連上網站都還是去年的內容，課程也不發公告，有點雷。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;chao-gui-de-jiao-ke-shu&quot;&gt;超貴的教科書&lt;&#x2F;h2&gt;
+&lt;p&gt;這裡的教科書真的超貴，400多頁一本的教科書動不動就要一百美元，就算以當地學生的眼光看起來仍是很貴的價格。學校的書店也有出售二手書，不過價格也不會低太多，差不多八折。(一本二手書台幣2400元，真的嚇到)。
+突然覺得在台灣的日子真棒，可以用超低價格買到內容幾乎相同國際版課本，真的很開心。
+教科書的高價現象，我當地的同學認為可能是美國比較注重智慧財產權的緣故，但我卻認為這是因為書商從中牟取過多利潤。因為即便是相同內容，以過去在台灣買原文書的經驗，在台灣國際版的價格會是美國本土的半價以下，以半價出售仍然能夠賺錢，大概就知道廠商到底抽走了多少錢，這種以價格堆出來的知識圍牆，我個人認為是不道德的。
+當地學生私底下建議我最好不要買課本，有些學生因為價格因素會直接上網找盜版，或是直接到圖書館借來看就好。
+我自己選擇打開amazon尋找二手，一本70美元的書在網路上可以用10美元買到一本外觀超新的二手，便宜又實用。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;pai-qiu&quot;&gt;排球&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-2&#x2F;crce.jpg&quot; alt=&quot;crce&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;這個星期參與了這邊兩個排球社團的打球
+分別是&lt;code&gt;Rec team&lt;&#x2F;code&gt;, 還有台灣學生組成的 &lt;code&gt;NFA&lt;&#x2F;code&gt;球隊。
+在打完 NFA 的團隊練習之後，在球場遇到了一群很強的球友，開開心心的連打了4小時，事後聊起天來才知道裡面有 Club team 成員。
+Club team 直接翻譯過來是台灣的校隊一般組，一樣有教練指導，跟台灣有公開組一樣，這裡也有對應的組別，不過那些學生應該有額外領獎學金，所以某種意義上也算是職業運動員。
+兩種大概可以說是校隊的 A,B 隊吧。&lt;&#x2F;p&gt;
+&lt;p&gt;關於Club team的強度，前幾天無意間看到成員的練球情況，我認為交大一般生的校隊強度會比這裡更高一點。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yi-zhou-shi-qing-zong-jie&quot;&gt;一週事情總結&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;買了雪靴，不用擔心融雪會把襪子弄濕了&lt;&#x2F;li&gt;
+&lt;li&gt;七天打了三天排球&lt;&#x2F;li&gt;
+&lt;li&gt;聽了交大 OSDI 的 線上課程一堂課&lt;&#x2F;li&gt;
+&lt;li&gt;哲學課讀了 Bertrand Russel 的 &amp;quot;The Value of Philosophy&amp;quot;&lt;&#x2F;li&gt;
+&lt;li&gt;參加兩次 iPal 的國際生聚會，認識了一些有趣的人&lt;&#x2F;li&gt;
+&lt;li&gt;學會做炒飯&lt;&#x2F;li&gt;
+&lt;li&gt;吃了東方式速食: Panda express，價格相對低廉，但，我家巷口比較好吃。&lt;&#x2F;li&gt;
+&lt;li&gt;辦好 debit card&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;yi-zhou-you-qu-wen-zhang-fen-xiang&quot;&gt;一週有趣文章分享&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;1-how-doom-fire-was-done-fabien-sanglard&quot;&gt;1. &lt;a href=&quot;http:&#x2F;&#x2F;fabiensanglard.net&#x2F;doom_fire_psx&#x2F;&quot;&gt;HOW DOOM FIRE WAS DONE - FABIEN SANGLARD&lt;&#x2F;a&gt;&lt;&#x2F;h3&gt;
+&lt;p&gt;作者 Fabien Sanglard 出過一些有關遊戲引擎的書籍，這篇主要在介紹像DOOM中的火焰效果的程式碼是怎麼寫的。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;2-kao-xue-sheng-zhuan-qian-de-xue-dian-ke-ji-dao-du&quot;&gt;2. &lt;a href=&quot;https:&#x2F;&#x2F;daodu.tech&#x2F;01-14-2019-podcast-ep-45-school-that-depends-on-students-salary&quot;&gt;靠學生賺錢的「學店」- 科技島讀&lt;&#x2F;a&gt;&lt;&#x2F;h3&gt;
+&lt;p&gt;這篇談論到在美國超高的大學學費下，誕生了以就業導向為教學的科技新創公司。在美國的這一週聽這篇特別有感。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;di-dian-jie-shao-gong-cheng-tu-shu-guan-grainger&quot;&gt;地點介紹:  工程圖書館 - Grainger&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-2&#x2F;grainger.jpg&quot; alt=&quot;grainger&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;這週花了不少時間在這間圖書館裡面讀書。
+學生都直接稱呼這街圖書館為 Grainger。&lt;&#x2F;p&gt;
+&lt;p&gt;這間圖書館座落在校園中的 Engeenering Quad，後門出去直接緊接CS的上課建築，再多走幾分鐘也可以直達ECE建築。&lt;&#x2F;p&gt;
+&lt;p&gt;一到四樓都有電腦可以讓學生使用，雖然還沒真正使用過，不過我知道圖書館裡的電腦都有連上工程學院的EWS( Engeering Work Station)。簡單來說學生可以在任何一台電腦裡面存取到自己放在 工作站的檔案，不需要繫帶隨身碟跑來跑去。
+這個圖書館很有趣，一樓除了有一間咖啡廳讓你在暴風雪的日子可以不用出館就能喝咖啡之外，還有一個很不錯的教科書借書區。前面有提到美國的教科書很貴、對學生十分不利，但 Graninger 的一樓會存放每學期所有工程學院的課程的教科書，只要告訴櫃檯人員是哪一本課本就能馬上拿到書，而學生一次可以在館內借閱兩小時(不能帶出館外)，許多沒有購買書籍的學生會選擇每天走到圖書館借閱，省力又省錢。&lt;&#x2F;p&gt;
+&lt;p&gt;Grainger 的電腦區十分多樣，有分為獨立工作跟方便討論的兩種不同區域，而且電腦又是雙螢幕，linux, Windows兩種系統都有，有預載上課可能會用到的所以付費軟體，對工程學院的學生十分友善。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-2&#x2F;grainger_back.JPG&quot; alt=&quot;grainger&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week1 - 踏入美國</title>
+		<published>2019-01-13T00:00:00+00:00</published>
+		<updated>2019-01-13T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-1/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-1/</id>
+		<content type="html">&lt;p&gt;來美國第一週的所見所聞&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;snow_transit_plaza.jpg&quot; alt=&quot;transit plaza&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;1&#x2F;7~1&#x2F;13&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;qian-wang-uiuc&quot;&gt;前往UIUC&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;chang-tu-fei-ji&quot;&gt;長途飛機&lt;&#x2F;h3&gt;
+&lt;p&gt;台北跟芝加哥時差14小時，以時間來看，我們從香港時間 1&#x2F;7 早上 11:00 從香港起飛，最後在芝加哥時間 1&#x2F;7 - 12:20 抵達，飛機一路逆行球自轉方向，向東從白天飛到黑夜，但卻還是在同一天裡打轉。 調適這麼大的時差，我從台北時間的 1&#x2F;6 熬夜一路撐到 1&#x2F;7 下午才開始睡覺，對我來說 1&#x2F;6 有 36 個小時，在香港轉機的時候好幾次走到一半因為睡著而跌倒。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;fei-ji-shang-de-tan-hua&quot;&gt;飛機上的談話&lt;&#x2F;h3&gt;
+&lt;p&gt;我不太習慣坐飛機，尤其是上下震動時的失重感會對我造成很大的壓力，飛到香港轉機的時候有 Leo 坐我旁邊在起飛的時候讓我抓著他的手。但是到芝加哥的班機就不同，位置周遭都是陌生人，真的讓我蠻沮喪的。起飛時候都用力抱著胸前的枕頭，這時候旁邊的女生遞給我一顆糖果，笑著說這樣會好一些! 等到飛機差不多平穩後我就開始找他聊聊天，順便緩解自己的壓力。
+是來自廣州的女同學，大三生，要去芝加哥轉機，因為中國的2+2雙學位學制所以正要到到肯塔基讀書，這是他的第二個學期。斷斷續續在飛機上的聊了快10個小時，算是一次很有趣的經驗。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;ord-ji-chang&quot;&gt;ORD 機場&lt;&#x2F;h3&gt;
+&lt;p&gt;中午降落在ORD機場之後，原本籠罩在地面附近的霧瞬間散去，留下的是有點斜的陽光跟超好的天氣。出了海關，讓我留下第一印象的是這裡的轉門是會感應人並自動打開的，還有美國的麥當勞超貴，一個套餐要10美元(300台幣左右，相同內容下價格大約是台灣三倍，包裝紙袋明顯比台灣厚上不少，口味上面，台灣的口味明顯精緻許多。
+ORD 機場室內全部都有開暖氣，所以穿著太多衣服會熱，機場上二樓可以直接轉搭便捷鐵路。我趁著等待巴士的時間走到站外晃見證機場的繁忙。一出機場就直接感受撲鼻的冷空氣，還有在台灣沒看過的車種。下午三點左右，陽光的角度很大，一旁高速公路因陽光全部被轉成了橘黃色，往天空一瞥能見到五六個反光亮點，仔細一看才發現都是等待起降的飛機。空氣非常的乾淨，往頭上一看，天邊的顏色能從接近地表的白色一路轉進深藍。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;ORD.jpg&quot; alt=&quot;ord&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;uiuc-xiao-qu&quot;&gt;UIUC 校區&lt;&#x2F;h2&gt;
+&lt;p&gt;到機場之後我們趕緊搭了 Peoria shuttle 從 ORD 前往 UIUC 校園尋找住宿點，大約四個小時的車程，中途因為時差或是太累的緣故，整台巴士依舊忽略了漂亮的芝加哥市區，睡成一片。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;da-xue-cheng&quot;&gt;大學城&lt;&#x2F;h3&gt;
+&lt;p&gt;小時一直聽到大學就是城鎮，一開始以為到交大那種，有公路近來的學校就叫做大學城，到了 UIUC 後才發現我的想像力實在太豐富。&amp;quot;大學城&amp;quot; 沒什麼，就真的只是字面上的意思，UIUC的校區是一個城市，有正常的車站，各種營業空間，大樓，廣場，美術館。更確切的來說，這就像朋友帶你走進一個不認識的城市，當你正在欣賞這個地方的美景時，劈頭一句:「不，這是一間大學」，說完就走，留下在路上逕自被冷風吹到凍傷、那個依舊在發愣的你。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;man-man-jing-fei-dui-chu-lai-de-xue-xiao&quot;&gt;滿滿經費堆出來的學校&lt;&#x2F;h3&gt;
+&lt;p&gt;新生訓練時的校園導覽讓我有機會好好看看未來生活的地方，因為校地廣大，所以校園以科系類別劃分程不同區塊，以我被分配到的 Computer Sicence 為例，跟ECE,ME 科系一起座落在校園北邊的 Engeenering Quad, 在Engeenering Quad 中自己有一個比交大浩然小一點點的工程學院圖書館。
+這裏的建築新舊摻雜，目前去過最老的建築是興建於 1924 年的 Main Library, 跟 1897 年建成 的 Altgeld Hall。最新的建築是2014建成的 ECE building。老的建築都名列國家古蹟，但內部修整良好，保留不少韻味的同時還能應付現在的使用需求，新式建築在空間的剪裁上十分現代，光是站在一旁觀看就是一種說不出的爽快。&lt;&#x2F;p&gt;
+&lt;p&gt;逛校園時發現一個十分有趣的景色 - 這裏有很多交大系館尺寸的 &amp;quot;實驗室&amp;quot;。以交大來說，我們的實驗室都是直接座落系館內部的教室，但是這裡卻是整棟建築，其實我也不確定知道這是什麼意思，只能先從建築尺寸推敲這裡的研究經費與能量是跟交大完全不同檔次的。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;gou-wu&quot;&gt;購物&lt;&#x2F;h2&gt;
+&lt;p&gt;學校附近有兩個大商場，Meijer(唸作&amp;quot;梅爾&amp;quot;)跟 Walmart,兩個都可以直接搭校園公車前往。這裡的食物都很便宜，一塊超大塊的牛排大概是180台幣，牛奶便宜的不用錢一樣。肉品很便宜。
+校園中也有一些亞洲超市，但是室友去採購的時候我剛好去打球，所以只能以後再說了。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;si-chu-xian-huang&quot;&gt;四處閒晃&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;yun-dong-guan&quot;&gt;運動館&lt;&#x2F;h3&gt;
+&lt;p&gt;校園裡面有兩個運動館 - 比較小間的 CRCE 跟 大間的 ARC。雖然說 CRCE(唸作&amp;quot;瑟西&amp;quot; )雖是相對小間的運動館，但其實也比交大體育館大。經過的時候本來想進去看看，不巧這時 CRCE 正在維修，只好等開學之後再去打打球見見世面。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;crce.JPG&quot; alt=&quot;crce&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;而 ARC 就是這星期真得進去且使用過的場館了，尺寸超大，全館暖氣，即便外面零下六度裡面還是保持著穿短袖也不需要特地熱身的舒適溫度。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;arc.JPG&quot; alt=&quot;arc&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;打球時偶遇幾個來 UIUC唸書的台灣人 ，聊聊天之後才知道這裡也有幾個打排球的組織，打球的地點分別是在ARC跟CRCE。加入FB上的社團之後，應該下個星期就會去參加看看，體驗UIUC這邊的排球風氣。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;tian-qi&quot;&gt;天氣&lt;&#x2F;h2&gt;
+&lt;p&gt;UIUC所在的緯度大約40度，冬天晚上會比台灣更久一些。陽光一離開，溫度就急速下降。大概從6度直接下探-10度。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;dusk.jpg&quot; alt=&quot;dusk&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;這裏的空氣很乾淨，晚上也不會像最近的新竹一樣充滿霧霾。
+這裏沒有什麼光害，往夜晚的郊區望去就是一片深黑，隨著台灣商家的壅擠化，現在的光害已經嚴重到整個夜空都是亮的了，很久沒有看到這種全黑的地平線。&lt;&#x2F;p&gt;
+&lt;p&gt;來UIUC的的第三天就遇到了人生第一次暴風雪。
+但其實下雪的前幾天晚上會到零下6度左右，下雪這天卻是零下1度，相對沒有這麼冷，還可以到處玩來玩去。雪真很好玩，這麼白又無暇的樣子就會想把整隻手壓上去，但沾上的雪會馬上融化成水，直接讓整隻手冰到爆炸。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;snow_transit_plaza.jpg&quot; alt=&quot;transit plaza&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xin-sheng-xun-lian&quot;&gt;新生訓練&lt;&#x2F;h2&gt;
+&lt;p&gt;1&#x2F;7 早上是我暪的第一次新生訓練，地點在xxx Hall 的劇院，這次的交換生人數眾多，橫跨工學院。大概看到的科系有物理，材料，機械，電機，資工，Business，藝術。
+這次訓練大概解釋了交換生的生活需求，有哪些資源可以使用。有趣的事校園內部有一堆可供撥打的電話，因為校地太廣，常常迷路，所以其實可以直接拿起緊急電話問路。在夜間的時候也可以撥打校園緊急電話申請學生的巡邏隊結伴走路回家。
+UIUC 的所在城市是Urbana與Champaign,是一個橫跨兩個城市的大學，這兩個城市分別有自己的合法飲酒年齡限制 : 21跟19歲，所以大學新生年齡不到的情況下要特別注意自己是去哪邊的酒吧，如果在錯的地方喝酒可能因此被罰400美元。&lt;&#x2F;p&gt;
+&lt;p&gt;工學院的個別時間時是一位教授上來致詞，他提到他在求學時期也曾到其他地方當交換生過，雖然說功課很重要，但是影響他最大的其實是他在交換生涯中遇見的同學跟教職員工，帶給他的意義遠遠超過那段時間學來的知識，這些除了功課之外的事情才是相對重要的。&lt;&#x2F;p&gt;
+&lt;p&gt;對於這點我感到很認同。我認為，我們都是解決實際問題的工程師(Engineer)，而大部分問題的受眾都屬於非工程師族群，即便不喜歡，基於專業上，我們也有了解人群的必要。唯有貼近、理解人群才能真正完美的解決目標受眾的需求，解決真正的問題。
+這點在最近去 Walmart 的時候稍微又引起了共鳴 - Walmart 的結帳區除了傳統店員幫忙結帳外，還有一個 &amp;quot;Scan &amp;amp; Go&amp;quot; 區域，讓民眾自助結賬。從幾次的購買經驗看來，這個系統還不能完全獨立運作，偶爾需要店員介入修正機器錯誤，但大部分的體驗算是不可思議的良好，仔細觀察，從輸送帶的自動移動到掃描區域的多重窗口同時掃描都能發現設計團隊的巧思。從過去修過微處理機課程經驗來看，這種系統雖在工程上其實不會太難，但由於直接面向素質不一的群眾，需要使他們在不教導的情況下就能最直覺的使用機器，研發團隊一定在使用者設計上下了不少功夫，並積極的討論整合，在我看來這就是一個工程貼近人群非常好的例子。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;WalmartPay.jpg&quot; alt=&quot;warmart pay&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ke-biao&quot;&gt;課表&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-uiuc-week-1&#x2F;2019courses.jpg&quot; alt=&quot;2019 courses&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;學期初的搶課也到了一段落，接下來就是要讓自己課程符合學校要求，UIUC 一學期最低的修課學分數是12學分，加上我有領交大的獎學金，所以一學期必須要選三門系上認可的專業選修。原本在來美國之前打算選修碩士班課程，但這裡碩班的課程是設計成一個碩士生一學期只吃得下兩門專業課程的強度。為了領交大獎學金，我最終放棄選擇碩班課程，改選一些有興趣但負擔也頗重的課程。
+我很幸運的選上了自己安排的最好課表。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;ECE 391 - Computer System Engeneering(4)&lt;&#x2F;p&gt;
+&lt;p&gt;單看課名可能不知其所以然，但內容其實就是交大資工碩班的「作業系統設計與實踐(OSDI)」課程的簡化版，一個學期下來要參與開發作業系統，算是 heavy loading 的課程。我打算把這堂課程當作交大OSDI的前導。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;CS 425 - Distributed System(3)&lt;&#x2F;p&gt;
+&lt;p&gt;分散式系統，這一直是我有興趣的課程，也是我碩士可能研究的領域之一，但這門課已經在交大消失多年了。我打算把這門課當成為期一學期的小專題，學期間額外翻閱一些經典論文，並在每週 Office hour 時找教授討論自己的心得與想法，就當作一次初探，測試一下自己對這個領域是否真的有興趣。 &lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;MATH 412 - Graph Theory(3)&lt;&#x2F;p&gt;
+&lt;p&gt;圖論一直都與資工密切相關的數學領域，不少問題最後都能被抽象成圖論領域的問題。雖然前面說的這麼冠冕堂皇，但其實降低負擔才是選擇這門課的主因，由於獎學金三門專業課程的要求，我最後選擇了一堂非程式的課程來讓自己過的不要太累。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;PHIL 100 - Intro to Philosophy-ACP(3)&lt;&#x2F;p&gt;
+&lt;p&gt;哲學概論，ACP的意思是要多寫點 essay。大約半年前開始我開始聽 &amp;lt; Philosophize this! &amp;gt;,的 podcast, 發現自己真的蠻有興趣的，加上我在交大還缺了一學分的通識，看著看著就選了這堂課啦!&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;KIN 104 - Skating Activities(1)&lt;&#x2F;p&gt;
+&lt;p&gt;簡單來說是 繳1500台幣爽溜半學期的冰，讚讚。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;jie-xia-lai-de-gui-hua&quot;&gt;接下來的規劃&lt;&#x2F;h2&gt;
+&lt;p&gt;UIUC的歷史悠久、校地廣大。
+希望接下來每篇都能記錄些有關校園不同地方的資訊。
+然後好好修課，好好享受，多多打球，多多參加國際生的活動。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>UIUC 交換 week0 - 寫在大四交換前</title>
+		<published>2018-12-21T00:00:00+00:00</published>
+		<updated>2018-12-21T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-uiuc-week-0/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-uiuc-week-0/</id>
+		<content type="html">&lt;p&gt;2018年12月，大四上，新竹大晴天，但風還是大到騎自行車下山坡需要雙腳用力踩的程度。&lt;&#x2F;p&gt;
+&lt;p&gt;再過一個月就要到UIUC當交換生。最後一個月，我忙美簽、考汽車駕照、還有寫不完的作業。現在每天的生活很固定，就是重訓、練球、翹課、寫作業、讀書。
+簡單記錄一下目前的情況吧!&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;&lt;h2 id=&quot;xuan-ke&quot;&gt;選課&lt;&#x2F;h2&gt;
+&lt;p&gt;交換生的選課比其他學生晚，所以現在都只能撿同學選剩的課程，不過目前看起來蠻有趣的，我選到了機器學習、數值方法、音訊計算、天文學概論與溜冰。從大綱還有學生的評價上來看，這些課程都蠻有趣的。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;hua-fei&quot;&gt;花費&lt;&#x2F;h2&gt;
+&lt;p&gt;交換半年的花費大概是這樣：最低50萬，生活舒適60萬，再出去玩一趟大的70萬。由於交換的決定是自己下的，我認為父母並沒有義務替我支出這筆錢，決定向他們借貸60萬作為支出基金，工作後兩年內再全數還清。向父母提出自己負擔大部分花費大概是這段時間中下過最勇敢也是正確的決定了，也因為自己出資，所以更有動力認真生活，為自己負責。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jiang-xue-jin&quot;&gt;獎學金&lt;&#x2F;h2&gt;
+&lt;p&gt;前些日子申請的獎學金總核定金額是12萬 - 交大國際辦事處8萬，資訊學院院辦4萬。獎學金的抬頭大概是什麼一般優秀學生交換，
+雖然跟交換需要的總金額有點差距，但我想學校的誠意已經夠了。
+順道一提，對方學校發給我的入學通知上面有寫，這次我的交換計畫UIUC出資14000美元，而我再自費10000美元，看到這個之後也稍稍認為自己沒這麼盤子，哈哈QQ&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;qi-wang&quot;&gt;期望&lt;&#x2F;h2&gt;
+&lt;p&gt;對於即將到來的交換生活，我會將目標放在：獨立研究、交朋友、體驗與持續運動。&lt;&#x2F;p&gt;
+&lt;p&gt;我打算在交換期間每天料理三餐，首先比較省錢，也比較能讓三餐符合預期的營養組成，也能拿室友的胃來練習做做菜。為此我大約半年前就在家裡練習，一路從無鹽湯、鍋巴蛋與各種實驗料理進步到媽媽認可，能夠出去餓不死的程度。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yan-jiu-yu-si-kao&quot;&gt;研究與思考&lt;&#x2F;h2&gt;
+&lt;p&gt;獨立研究，趁大四下的半年先對研究所的研究主題進行探索。了解一下現在的研究前線在哪。順便趁著雜事比較少的這學期把以往有興趣的主題拿起來研究，比如平行程式跟計算機架構。大概會每周寫一封類似觀察心得的郵件給未來的指導教授回報進度。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;mei-tian-yun-dong&quot;&gt;每天運動&lt;&#x2F;h2&gt;
+&lt;p&gt;這次出國一大部分是想藉由團體的運動來跟當地學生多多交流，我在社群軟體上加入了三個三個排球社團，希望每天晚上都能到超級高級的體育館打排球、或是跟現在一樣每天上健身房動動身體。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yi-lu-shun-feng&quot;&gt;一路順風!&lt;&#x2F;h2&gt;
+&lt;p&gt;大概就是這樣，隨著年紀增長漸漸發現自己常常對於規劃有太大的野心，總是規劃給自己過於充實的生活，在交換學生的半年中，我只打算給自己安排這些計劃，多出來的時間就好好去生活吧。&lt;&#x2F;p&gt;
+&lt;p&gt;祝順利！&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>生活小記-談談人的轉變</title>
+		<published>2018-07-12T00:00:00+00:00</published>
+		<updated>2018-07-12T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2018-becoming-adult/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2018-becoming-adult/</id>
+		<content type="html">&lt;p&gt;大二的系排出遊時好不容易找到了高中時社團的漢培學長聊聊天&lt;&#x2F;p&gt;
+&lt;p&gt;我們兩個剛好差兩屆，高一進入社團時他是已經是退休社長，後來高二當上幹部時的幹部訓練時也是他帶的，當時覺得他這個人的想法很特別，不過一直沒什麼機會交流。&lt;&#x2F;p&gt;
+&lt;p&gt;那天是系排的出遊，晚上活動結束後，特別找了他聊聊對高中社團的想法，對愛情的觀點，還有各自對未來的想望。到了後來，談到了自己對成長的困惑。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;「我感覺自己好像比以前更難開心起來了...」&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;我說著。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;「你有沒有想過只是讓你感到快樂東西不一樣了？」&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;提出問題的漢培學長丟出了個有趣的方向。&lt;&#x2F;p&gt;
+&lt;p&gt;而我的知識告訴我 : &lt;strong&gt;人的一生會因階段而面臨到不同的挑戰，這是個在社會價值跟自我心理相互影響下所共構出的劇本。&lt;&#x2F;strong&gt;&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;「在這社會中，你必須得上大學，因為人們總是告訴你該這麼做，直到真正去了之後，你才會發現這裡什麼都沒有。」&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;於是20歲後，強烈的落差感逼著你改變，快樂這個字也漸漸醞釀出另一層意義: 是找回自己的本心，是生而為人的踏實，也一部分是那而不辭辛勞的努力本身。&lt;&#x2F;p&gt;
+&lt;p&gt;做著自己喜歡的事情，為此投入百分百熱忱，就算因此而疲累也不有怨言，那種回過頭來也會笑出來的苦真的是人生的一大享受。&lt;&#x2F;p&gt;
+&lt;p&gt;總歸來說，或許我已經轉變成一個人生的臭M吧。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>交大資工轉系紀錄</title>
+		<published>2016-09-15T00:00:00+00:00</published>
+		<updated>2016-09-15T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2016-transfer-to-cs/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2016-transfer-to-cs/</id>
+		<content type="html">&lt;blockquote&gt;
+&lt;p&gt;The brick walls are there for a reason.&lt;&#x2F;p&gt;
+&lt;p&gt;The brick walls are not there to keep us out.&lt;&#x2F;p&gt;
+&lt;p&gt;The brick walls are there to give us a chance to show how badly we want something.&lt;&#x2F;p&gt;
+&lt;p&gt;Because the brick walls are there to stop the people who don’t want it badly enough. They’re there to stop the other people.&lt;&#x2F;p&gt;
+&lt;p&gt;-- Randy Pausch, The Last Lecture&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;applyList.png&quot; alt=&quot;apply list&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;em&gt;我的大學申請志願序。畢竟都叫志願表，不照志願填又有什麼意思呢？&lt;&#x2F;em&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zhi-ding-ke-mu-kao-shi&quot;&gt;指定科目考試&lt;&#x2F;h2&gt;
+&lt;p&gt;從離開考場的剎那間就知道考差了。&lt;&#x2F;p&gt;
+&lt;p&gt;我感到不知所措，但卻又有股澎湃陣陣衝上胸口。&lt;&#x2F;p&gt;
+&lt;p&gt;結束了，離開高中代表已經脫離最險惡的應試人生，我再也不想逼自己強吞用不到的知識，再也不想每天晚上悲苦的走到自習室，拿起沒興趣的書本猛k，假裝為自己的人生負責。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;去你的台灣教育&lt;&#x2F;strong&gt;，離開了你，我的人生才剛開始。&lt;&#x2F;p&gt;
+&lt;p&gt;那段日子裏，心情總帶了點灰暗，矛盾的念頭不停在心中打轉。我自認為人生才剛開始，但怎麼好像從一起步就落後了。在內心確認不重考後，我選擇直接進入大學，讓自己直接跳脫充滿升學主義的高中教育，好好過活。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;gao-bie-gao-zhong&quot;&gt;告別高中&lt;&#x2F;h2&gt;
+&lt;p&gt;畢業典禮是在指考前，那天，指考生們匆忙回到學校，急忙領畢業證書拍拍照就回去準備考試。還記得典禮當天某班的老師鬧脾氣搞失蹤... 記不清楚了，只是回想起來還是會不自覺地發笑。&lt;&#x2F;p&gt;
+&lt;p&gt;直到考完試之後我才能好好的跟中一中道別。&lt;&#x2F;p&gt;
+&lt;p&gt;升大一的暑假，回吉他社辦了場幹部訓練，在認識學弟的同時也回味回味熟悉朋友們。&lt;&#x2F;p&gt;
+&lt;p&gt;參加吉他社最初只是想要能夠一個人靜靜彈個琴，享受旋律。直到三年過後才發現其實已愛上這裡 - 有34屆大家聚在一起的地方。&lt;&#x2F;p&gt;
+&lt;p&gt;上課時躲在陽台烤熱狗，放學後肆意練琴，一中火神，四腳獸，民吉學長大聲到靠北的藍領階吉班宣，往操場丟水球的雞掰人，夜讀後的例行長跑...&lt;&#x2F;p&gt;
+&lt;p&gt;我站在校門口，回想片段片段的美好回憶，簡單告別苦澀又矛盾的高中。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jiao-da-tu-mu&quot;&gt;交大土木&lt;&#x2F;h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;quot;一次只做一件事&amp;quot;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;高中時智詠學長如此告誡我。從成發前那個晚上開始，這句話就深深烙印在心底。&lt;&#x2F;p&gt;
+&lt;p&gt;指考沒意外是真的炸掉了，不過看準了交大資工的&lt;strong&gt;交換學生&lt;&#x2F;strong&gt;計畫，硬是在填志願時填了交大土木作為保底。於是我在入學前就成為了轉系生，注定要留在這個系歇歇，遇見一些有趣卻緣分不長的人們。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ke-ye&quot;&gt;課業&lt;&#x2F;h2&gt;
+&lt;p&gt;在轉系的過程中，我想唯一要注意的是，土木系禁止學生退選大一任何必修課程。(太多人轉系了)，所以在追求自己喜好的同時也要去弄弄混凝土、算力學、畫工程圖，不過這樣教學其實也比高中時代那種摸不著邊的理論好玩多了，至少我是學得挺開心的。&lt;&#x2F;p&gt;
+&lt;p&gt;而內轉資工系屬於校內轉系，比台聯大的校際轉系再更輕鬆些，不需要任何考試，只要在大一下學期結束時提出轉系申請書。但為了能保證成功轉系，我仍花了不少時間在唸書來拉高成績。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;上大學之後的人生，才漸漸像是個對自己負責的人生&lt;&#x2F;strong&gt;，這一年旁聽資工的計概、和其他同學一起交作業考試。甚至很幸運的在下學期時抓到課程縫隙，修到了資工的離散數學。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xiu-xian&quot;&gt;休閒&lt;&#x2F;h2&gt;
+&lt;p&gt;交大在網路方面的邏輯十分簡單，只要是有建築物就有Wifi可以用，宿舍網路上傳下載無限量，再搭配上g2基本上無上限的雲端容量，只能用爽一字來形容。&lt;&#x2F;p&gt;
+&lt;p&gt;閒暇之餘，練練系排，跟著去打了大學的第一場大土盃。我最喜歡系排練完球之後在餐廳吃飯閒聊的時刻，這一年在系排中認識了小黃，鬍子，小胖，靖傑，跟立榮這幾個很有趣的學長。&lt;&#x2F;p&gt;
+&lt;p&gt;在看電影方面，特別去找了一些以前想看卻沒機會的電影，全部重看了一次。&lt;&#x2F;p&gt;
+&lt;p&gt;不過為了練點英文聽力，所以幾乎都把字幕拔掉再看。其實也是過得挺愜意的，還複習了宮崎駿跟星爺的電影呢ㄎㄎ。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ren-yu-huan-jing&quot;&gt;人與環境&lt;&#x2F;h2&gt;
+&lt;p&gt;大部分土木的老師跟同學對人都很不錯。可能是參加系排的緣故，大一這年雖然都在弄自己的事但是還是認識了系上大約八成的人。雖然說到最後搞到所有人都知道我要轉系，不過大家都還是是對我很好，想起來真的是有些不好意思哈哈。&lt;&#x2F;p&gt;
+&lt;p&gt;我的大一導師原本大學念土木系，但是大學時剛好十大建設完成，工程師需求銳減，他那屆有一半的學生都轉行了，而他自己則是到資策會開始重新訓練，最後結合資科跟土木，才變成現在的他。&lt;&#x2F;p&gt;
+&lt;p&gt;在這一學年來與我談了非常多的話，一直擔心資工是我胡亂選出來的志向，怕我轉過去之後會受到太多挫折。感謝老師，讓我在談話中不斷重新思考自己，並再度確認這是我喜歡的方向。
+升上大二後的某一天傍晚在路上遇見老師，他放下自己的晚餐，找我進了他辦公室聊了快一個多小時，看見他知道我學得很開心之後展現出的喜悅，我真的真的很感激他對我的關心。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;cheng-shi-zi-xue&quot;&gt;程式&amp;amp;自學&lt;&#x2F;h2&gt;
+&lt;p&gt;除了上網瘋狂google外，也看了一些電腦書、強迫自己用CLI寫程式。這種自主學習，真的能帶來不少成就感。&lt;&#x2F;p&gt;
+&lt;p&gt;雖然這些事情跟課業加起來會讓生活忙碌不少，但回頭過來看其實並不是多難的事情，就是為大二之後的生活做更好的準備。&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;熟悉CLI環境&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;鳥哥的linux私房菜&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;熟悉vim&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;http:&#x2F;&#x2F;derekwyatt.org&#x2F;vim&#x2F;tutorials&#x2F;novice&#x2F;&quot;&gt;Vim Novice Videos&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;http:&#x2F;&#x2F;learnvimscriptthehardway.stevelosh.com&#x2F;&quot;&gt;Learn Vimscript The Hard Way&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;程式0-&amp;gt;弱咖
+主要就是旁聽的資工課程，還有自己額外買書自修。
+列上幾個比較有趣的作業，這些東西在我學程式之前都不相信是可以靠自己寫出來的。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;萬年曆&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;calendar.png&quot; alt=&quot;calendar&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;算完日期之後用ANSI&#x2F;VT100來操縱輸出的字元&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Knight’s tour&lt;&#x2F;strong&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2016-transfer-to-cs&#x2F;dfs.png&quot; alt=&quot;kinghts tour&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;簡單來說就是用窮舉法配合DFS(深度優先搜尋)解題，沒什麼特殊技巧。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;練習英文盲打，看了一堆美國電影，練練聽力&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;唸書，排球，電影，程式。大一的生活就簡單又美好的被充滿了。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;good.png&quot; alt=&quot;things are good&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xia-yi-zhan-jiao-da-zi-gong&quot;&gt;下一站 - 交大資工&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2016-transfer-to-cs&#x2F;acceptence.png&quot; alt=&quot;i&#x27;ve being acceptted&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;在暑假遞交轉系申請表之後，就可以慢慢等結果了。&lt;&#x2F;p&gt;
+&lt;p&gt;收到通知當下的感覺並不強烈，沒有那種屬於那種高人一等的優越感所帶來的喜悅，少了一份大考完後的虛榮。&lt;&#x2F;p&gt;
+&lt;p&gt;我想這大一的一年對我人生最大的幫助就是徹底跳脫出考場上計較分數的那種爛心態吧!&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;p&gt;轉系生的身份在系上相對弱勢，基本上就是要“爭取自己的權益”，因為系上對轉系生不太友善，在選課方面也需要特別規劃，所以在升上大二的同時就要把大學部的課程都重新規劃完畢，尤其是對想爭取交換學生的人來說十分重要。&lt;&#x2F;p&gt;
+&lt;p&gt;交大資工，我來了!&lt;&#x2F;p&gt;
+</content>
+	</entry>
+</feed>

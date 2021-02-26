@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+	<title>IanChen - python</title>
+	<link href="https://ianchen.tw/tags/python/atom.xml" rel="self" type="application/atom+xml"/>
+  <link href="https://ianchen.tw"/>
+	<generator uri="https://www.getzola.org/">Zola</generator>
+	<updated>2019-08-18T00:00:00+00:00</updated>
+	<id>https://ianchen.tw/tags/python/atom.xml</id>
+	<entry xml:lang="en">
+		<title>C 跟 Python 本質上的差異</title>
+		<published>2019-08-18T00:00:00+00:00</published>
+		<updated>2019-08-18T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2019-difference-between-c-and-python/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2019-difference-between-c-and-python/</id>
+		<content type="html">&lt;p&gt;我在這裡提供一個面向，可以很簡單的解釋 C 與 Python 間本質上的差異。首先，讓我們從「設計」這些程式語言的角度來看看有什麼差別。實際上不算困難，不需要程式設計的經驗就能夠理解。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-difference-between-c-and-python&#x2F;python-exe-scene.jpg&quot; alt=&quot;Python運行場景&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;先來稍微看看這段 C 語言的程式碼，如果忽略掉那些不熟悉的語法，稍微讀看看發生了什麼事情。&lt;&#x2F;p&gt;
+&lt;p&gt;程式在一開始時跟電腦說等等會用到三個變數，並且各自命名為 a, b, sum 供往後參考。將 a+b 的計算結果存回 sum 之中，最後呼叫 &lt;code&gt;printf&lt;&#x2F;code&gt; ( print formatted ) 函式在終端機顯示我想要的數字結果。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;&#x2F;&#x2F; c version
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;#include &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;stdio.h&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;int &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;void&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;){
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;int&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;b&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;sum&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;  a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;b&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;  sum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;b&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;printf&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;Sum of a and b is :%d&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\n&amp;quot;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; sum&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;);
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;;
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;程式運行結果:&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;Sum of a and b is : 3&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;這是一個很簡單的Ｃ程式。接下來的這段 Python 程式的目的與結果會跟上面那段完全相同。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# python version
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;def &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;():
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;b&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;2
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;Sum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;a&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;b 
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;print&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;Sum of a and b is :&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{}&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;format&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;Sum&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;))
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;__name__ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;== &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;__main__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;:
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;Sum of a and b is : 3&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;沒有辦法全部讀懂也不是個問題，你只要注意到兩段程式碼在文字上的內容是差不多的，於是你可能會很簡單的推測，這兩者的差異是不是只存在語法上的不同？&lt;&#x2F;p&gt;
+&lt;p&gt;不，事實遠不如此。&lt;&#x2F;p&gt;
+&lt;p&gt;他們擁有完全不同的運作模式。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;bian-yi-shi-cheng-shi-yu-yan-bei-yun-zuo-de-di-yi-bu&quot;&gt;編譯是程式語言被運作的第一步&lt;&#x2F;h2&gt;
+&lt;p&gt;電腦計算誕生之初，所有邏輯、數字都只有 0 跟 1 、開與關的概念。最簡單、直接寫程式的方法就是參照每個計算器電路的說明書，分別給每個輸入用電路腳位的給予高或低的電壓來進行輸入，我們再透過人為解釋輸出電路各腳位的電壓高低來知道最後的運算結果。&lt;&#x2F;p&gt;
+&lt;p&gt;程式語言誕生後，程式設計師得以從直接操作 0 與 1 位元值編寫程式的方法中解放，再也不用自行寫入一個個指令，但從近百年前至今，電腦運作的概念從來沒改變過，就是 0 跟 1。所有有關計算的事情最終都回歸 0 與 1，不管是最初機房大的電腦到現在你手機中的晶片皆屬如此。&lt;&#x2F;p&gt;
+&lt;p&gt;編譯 ( Compile )，簡單來說就是將你寫的程式碼直接翻譯回 0 與 1 的世界中，成為一排排只有 0 跟 1 的指令。而編譯器（ Compiler ），就是專門執行編譯的一支程式，我們向他輸入寫好的Ｃ語言程式碼，獲得可以點兩下執行的可執行檔案，電腦會一一參照這些指令中的內容計算出結果，並將結果儲存下來跟往後的指令進行互動。&lt;&#x2F;p&gt;
+&lt;p&gt;C 語言的執行情況很簡單直白，就是透過編譯器將Ｃ程式碼編譯成一堆指令，並且存成一個檔案，當你執行程式時，系統會將該檔案中的指令一個個餵給 CPU 執行（CPU - Central Processing Unit，電腦進行計算的關鍵組件 ），又或更正確來說，CPU會自行依序讀取檔案中一行行的指令來執行，就像我們把紙放進碎紙機時，他會自動吃紙的過程一般。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-difference-between-c-and-python&#x2F;c-compile.jpg&quot; alt=&quot;C語言的編譯場景&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-difference-between-c-and-python&#x2F;c-exe-scene.jpg&quot; alt=&quot;C語言運行場景&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;但 Python 的情況則不然。我喜歡將 C 與 Python 兩種語言的差異視作一種概念演進。即便他們都不是這類語言的創世元老。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;python-cheng-shi-bing-bu-shi-bei-zhi-jie-zhi-xing&quot;&gt;Python 程式並不是被直接執行&lt;&#x2F;h2&gt;
+&lt;p&gt;Python 的運作模式很有趣，第一次聽見的人可能要仔細想想。想像有一個小助手在程式開始之初就興沖沖的跑到你面前問你：「老闆接下來要幹嘛？」而你說完之後他總會待在原地想想你的意思，然後消失一陣子，但不久又馬上衝回來再問你一遍。這樣的情境不斷循環，直到你解僱他或不小心命令他吃絲瓜讓他死掉（真的難吃到爆炸）讓他沒辦法回應你為止。&lt;&#x2F;p&gt;
+&lt;p&gt;實際上不都是一行行的指令要電腦去運作嗎？有什麼差別？&lt;&#x2F;p&gt;
+&lt;p&gt;有，這個小助手其實是另一支程式，當你執行  Python 程式時，實際上就是呼叫出這個小助手來讀你的程式碼。&lt;&#x2F;p&gt;
+&lt;p&gt;他會在執行期間才開始理解你程式碼的每一步驟的意義，並且即時轉換成一個個早已寫好的指令模組，讓電腦一次執行一大堆指令，這個行為叫做&lt;code&gt;直譯&lt;&#x2F;code&gt;( Interpret )&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-difference-between-c-and-python&#x2F;python-exe-scene.jpg&quot; alt=&quot;Python運行場景&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;而這種在實際執行時才會將最初的程式碼轉換成電腦能讀的語言的程式，稱為&lt;code&gt;動態語言&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;p&gt;他們在設計的概念上脫離了過去純計算的想法，透過這層小助手在概念上的抽象化，動態程式語言的寫作更逼近了設計師本體，我們也能很簡單的在動態語言中根據外界的事物直接修改程式的架構本身，比如說根據使用者輸入來定義新型別，或是使用如 函式產生器 等等新奇古怪的用法。電腦很低能，但 Python 稍微聰明一些，你想得到的，基本上都做得到。所以我們也會把動態語言歸類成高階語言的一種。&lt;&#x2F;p&gt;
+&lt;p&gt;順道一題，剛才提到的小助手，在 Python 開發者之間的正確名稱為 &lt;code&gt;直譯器&lt;&#x2F;code&gt; (interpreter)。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;c-yu-python-yun-xing-shi-de-feng-jing-gui-cheng-yu-nao-shi&quot;&gt;C 與 Python 運行時的風景 - 鬼城與鬧市&lt;&#x2F;h2&gt;
+&lt;p&gt;先將主題拉回 Python，首先稍微擴充一下剛剛提到 Python 的運行環境，當你跟小助手說完話之後，他其實跑去了一個充滿人的市場中，開始調度其他人做事，扮起了你從來沒看見的，大老闆的角色。&lt;&#x2F;p&gt;
+&lt;p&gt;當你說想要有一個裁縫鋪時，他馬上跑去市場開了一間，還請了一為裁縫師傅駐店經營。當你再跟他說你現在想要拿到一把裁縫刀時，他再趕回市場大呼一聲「裁縫店的老闆在哪？給我來把裁縫刀！」「要多久 要多久 要多久，你各位啊，是不是想全連洞八到退伍？」，午睡中的裁縫店老闆姍姍來遲，於是他拿著剛領到的刀衝回你面前，「老闆接下來要幹嘛？」他一慣的面帶微笑，但臉上滿是剛才激烈運動後爆出來的青筋，充滿了詭異跟不協調 —  Python 運行環境之中，直譯器會知道並管理每個物件的狀態。這是 Python 運行時的樣子。&lt;&#x2F;p&gt;
+&lt;p&gt;而 C 語言呢？&lt;&#x2F;p&gt;
+&lt;p&gt;登！剛才的小助手消失了，市集除了你自己以外一個人都沒有。待了久一點你開始發現有點不對勁，一回神發現原本放在你前面的木桶竟然變成了一堆漂浮在空中的數字！&lt;&#x2F;p&gt;
+&lt;p&gt;是的，當 C 語言運行時，所發生的一切都應該被視為赤裸裸的數字跟記憶體位址，一切你熟悉的語法在運行時都會消失，或是說變成他最原始的樣貌 -  數字，裁縫鋪的值是數字87，裁縫刀存在於 0x1234 的位址中（值在這裡不重要）。C 語言的運行環境是個鬼城，沒有人，只有滿滿的數字跟不停運算的 CPU。&lt;&#x2F;p&gt;
+&lt;p&gt;C 語言的語法只是個假象，當你跟 C 越熟悉、路走的越遠時，你就越能體會到他背後那些「數字」的本質。我們將程式碼在執行之前就被編譯完成，執行時環境只是一個鬼城的Ｃ語言歸類為&lt;code&gt;靜態語言&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wei-liao-ni-wo-zao-liao-zheng-ge-shi-jie&quot;&gt;為了你，我造了整個世界&lt;&#x2F;h2&gt;
+&lt;p&gt;希望看到這裡，你已經能理解 C 與 Python 兩者的差異，在這裡提一下兩者間最常會被比較的事情 - 運算速度。&lt;&#x2F;p&gt;
+&lt;p&gt;想像一下， Python 這樣是一個到了運行時小幫手才開始理解你想要做什麼，並且需要自行管理一大堆資源訊息的語言。相對於 C 而言，Python 直譯器的這層抽象化是直接導致效能低於 C言的關鍵。&lt;&#x2F;p&gt;
+&lt;p&gt;或許一開始就只是想拿一把裁縫刀，在 Ｃ語言中只要在某個記憶體區塊中填入數字，但在 Python 中，小幫手總是必須走過創造市集，招募裁縫師，最後跟師傅拿裁縫刀的手續。煩都煩死了。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;像我這種重視效能的人永遠都只寫Ｃ語言呢。 - C父&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;真的嗎？&lt;&#x2F;p&gt;
+&lt;p&gt;假的，隨便唬唬都信，嘻嘻。&lt;&#x2F;p&gt;
+&lt;p&gt;C 與  Python 若只單單比較速度是不公平的，因為會這樣做的人往往沒有考慮到兩種語言在功能跟方便性的差距。而且在一般開發者的使用下，兩者運算速度的差異也是一般人體會不出來的。&lt;&#x2F;p&gt;
+&lt;p&gt;舉個例子：&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;花 10 分鐘寫一支以後只用一次的 Python 程式，運行時間 0.01 秒&lt;&#x2F;li&gt;
+&lt;li&gt;花 30 分鐘寫一支以後只用一次的、相同功能的 C 程式，運行時間 0.0001 秒&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;你會選哪一種情況呢？&lt;&#x2F;p&gt;
+&lt;p&gt;在這種情況下，我會選擇第一個，但提醒一下，第二個在效能上可是快了第一個 100 倍的。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xiao-zong-jie&quot;&gt;小總結&lt;&#x2F;h2&gt;
+&lt;p&gt;Ｃ是靜態語言，而 Python 是動態語言，兩者最大的差異就是將程式碼轉換成二進位數字的時機，以及運行程式時有沒有直譯器存在，共同運作。&lt;&#x2F;p&gt;
+&lt;p&gt;Ｃ語言的編譯發生在我們將程式碼餵給編譯器的瞬間，在那之後我們會拿到一個可直接讓CPU讀取，充滿指令碼的可執行檔案。&lt;&#x2F;p&gt;
+&lt;p&gt;Python 語言的運行則是我們直接執行直譯器，並將一行行程式碼當作指令輸入到直譯器中，他會每個瞬間知道並管理現在有哪些變數與函式存在於程式之中。&lt;&#x2F;p&gt;
+&lt;p&gt;大家最常比較，兩者間的「效能」差異，其實並不應該只列計算速度作為參考，而必須同時將設計者的開發時間納入考量。根據不同情況自己做取捨。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title> ros+python3設定</title>
+		<published>2018-05-27T00:00:00+00:00</published>
+		<updated>2018-05-27T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/python-ros3-setting/" type="text/html"/>
+		<id>https://ianchen.tw/posts/python-ros3-setting/</id>
+		<content type="html">&lt;p&gt;Ubuntu 16.04 上面的 ROS lunar 預設使用 &lt;code&gt;python2.7&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;&lt;h2 id=&quot;an-zhuang-pyenv&quot;&gt;安裝pyenv&lt;&#x2F;h2&gt;
+&lt;p&gt;使用pyenv來控管系統上的不同 python 版本是目前 python 社群的發展趨勢&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;pyenv&#x2F;pyenv&quot;&gt;pyenv安裝教學&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;安裝 python3.6.5&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-lang&quot; data-lang=&quot;lang&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pyenv install 3.6.5
+pyenv global 3.6.5
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;geng-gai-yu-she-de-shellbian-shu-pythonpath&quot;&gt;更改預設的shell變數 : $PYTHONPATH&lt;&#x2F;h2&gt;
+&lt;p&gt;ros主要藉由 &lt;code&gt;$PYTHONPATH&lt;&#x2F;code&gt; 變數來獲得系統上有關python的資訊
+把下面這行放到 &lt;code&gt;~&#x2F;.bashrc&lt;&#x2F;code&gt; 的檔案尾端&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;export PYTHONPATH=$(pyenv root)&#x2F;shims:$PYTHONPATH
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;更改之後會讓 ros 預設先讀取目前設定的 python 版本
+如果只做完這步驟就使用 catkin_make 來編譯的話八成會跳出找不到套件的問題&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;Traceback &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;most recent call last&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;):
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;File &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;opt&#x2F;ros&#x2F;lunar&#x2F;share&#x2F;gencpp&#x2F;cmake&#x2F;..&#x2F;..&#x2F;..&#x2F;lib&#x2F;gencpp&#x2F;gen_cpp.py&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, line &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;41&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;in &amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;module&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;genmsg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;template_tools
+  File &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;opt&#x2F;ros&#x2F;lunar&#x2F;lib&#x2F;python2.7&#x2F;dist-packages&#x2F;genmsg&#x2F;template_tools.py&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, line &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;39&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;in &amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;module&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;em
+ModuleNotFoundError&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;No module named &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;em&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;
+
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;shou-dong-an-zhuang-xiang-yi-xing-tao-jian&quot;&gt;手動安裝相依性套件&lt;&#x2F;h2&gt;
+&lt;p&gt;會需要做到這步驟目前猜測是 ubuntu 的套件 &lt;code&gt;python-catkin-pkg&lt;&#x2F;code&gt; 跟 &lt;code&gt;pyenv&lt;&#x2F;code&gt; 兩者之間的整合性並不太好。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pyenv global 3.6.5
+pip install -U rosdep rosinstall_generator wstool rosinstall six vcstools empy
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Python 的 package 與 module</title>
+		<published>2018-03-13T00:00:00+00:00</published>
+		<updated>2018-03-13T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/package-and-module-in-python/" type="text/html"/>
+		<id>https://ianchen.tw/posts/package-and-module-in-python/</id>
+		<content type="html">&lt;p&gt;這篇是閱讀 &lt;a href=&quot;https:&#x2F;&#x2F;docs.python.org&#x2F;3&#x2F;tutorial&#x2F;modules.html&quot;&gt;python3官方文件-Module&lt;&#x2F;a&gt; 並進行測試後的一些理解
+文中也會提供我認為的使用方法以及實際在專案中遇到的問題跟解決方式。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;package-and-module-in-python&#x2F;python_interpreter.png&quot; alt=&quot;python interpreter&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;文章會先從 &lt;code&gt;Modlue&lt;&#x2F;code&gt;(模組)下手，再依序提到 &lt;code&gt;Pacakge&lt;&#x2F;code&gt; 的概念。其次再比較兩者在 import 時的差別。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;module-mo-zu&quot;&gt;Module (模組)&lt;&#x2F;h2&gt;
+&lt;p&gt;在python專案的組建架構中，模組可以說是最小的層級。任何一個以 .py為副檔名的 python 程式碼都被視為模組。
+比如說以下的 hello.py就是一個簡單的模組。在這種情況下，&lt;strong&gt;也可以說有一個模組叫做 hello&lt;&#x2F;strong&gt;&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#hello.py
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;def &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;say_hi&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;():
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;print&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;Hello, World!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;__name__ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;== &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;__main__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;:
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;say_hi&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;if-name-main&quot;&gt;if __name__ == &amp;quot;__main__&amp;quot;&lt;&#x2F;h3&gt;
+&lt;p&gt;在剛剛的例子裡面，有寫到 &lt;code&gt;if __name__ == &#x27;__main__&#x27; &lt;&#x2F;code&gt; 這個判斷式，這是 python interpreter 用來分辨這個模組是被直接執行還是被其他模組匯入(import)的重要機制。python interpreter在開始執行之後就會初始化 &lt;code&gt;__name__&lt;&#x2F;code&gt; 這個特別的環境變數，當我們直接執行某個模組的時候，&lt;code&gt;__name__&lt;&#x2F;code&gt; 變數就會被設為&lt;code&gt;__main__&lt;&#x2F;code&gt;這個字串值。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;python hello.py
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# --- 所謂的直接執行，就是這個意思。
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;如果想知道當前 interpreter有哪些環境變數的話，可以在直接呼叫 &lt;code&gt;dir()&lt;&#x2F;code&gt; 函式，__name__ 變數就跑出來了。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;package-and-module-in-python&#x2F;python_interpreter.png&quot; alt=&quot;python interpreter&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;hui-ru-ji-you-mo-zu&quot;&gt;匯入既有模組&lt;&#x2F;h3&gt;
+&lt;p&gt;一般來說，會把 python 程式碼存在檔案中就是為了重複使用這些程式碼，也就是把一些函式包含在 &lt;code&gt;hello&lt;&#x2F;code&gt; 這個模組中。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;package-and-module-in-python&#x2F;module_import_1.png&quot; alt=&quot;mod import&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;假設現在同一個資料夾下的另一個檔案 &lt;code&gt;another.py&lt;&#x2F;code&gt;中想要使用 &lt;code&gt;hello.py&lt;&#x2F;code&gt; 中的函式，我們可以將 hello.py 模組匯入(import)。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# another.py
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;hello
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;__name__ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;== &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;__main__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;:
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;hello&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;say_hi&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;官方文件中有提到，&lt;strong&gt;為了提升效率，不管專案中有幾個檔案匯入同個模組，任何模組都只會被執行一次。&lt;strong&gt;此外，在匯入模組的時候，interpreter會把模組裡面的句子&lt;&#x2F;strong&gt;都先執行過一次&lt;&#x2F;strong&gt;，除非是初始化的片段，不然我都會把他包在另外的函式裡面，避免副作用(side effect) 產生。&lt;&#x2F;p&gt;
+&lt;p&gt;python也支援不同的import模式，可以直接查看 &lt;a href=&quot;https:&#x2F;&#x2F;docs.python.org&#x2F;3&#x2F;tutorial&#x2F;modules.html#more-on-modules&quot;&gt;官方文件&lt;&#x2F;a&gt; 來進一步了解。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;package-tao-jian&quot;&gt;Package(套件)&lt;&#x2F;h2&gt;
+&lt;p&gt;在一個專案架構中，除了可以依據功能將不同函式放在同一個模組中。也可以用同樣的依據將相似的模組放在同一個資料夾中。python將套件作為資料夾架構的強化版本。在官方文件中的定義，任何含有 &lt;code&gt;__init__.py&lt;&#x2F;code&gt;的資料夾就稱為一個套件。&lt;code&gt;__init__.py&lt;&#x2F;code&gt;可以是全空的文件，也可以定義額外內容來產生額外作用。詳見 &lt;a href=&quot;https:&#x2F;&#x2F;docs.python.org&#x2F;3&#x2F;tutorial&#x2F;modules.html#tut-packages&quot;&gt;官方文件&lt;&#x2F;a&gt; 。&lt;&#x2F;p&gt;
+&lt;p&gt;我想以目前正在開發的簡單小專案為例解釋套件的用法。在 &lt;code&gt;Github&lt;&#x2F;code&gt; 上面，我有一個放置自己設定檔案的 repo，並在其中附上了一個支援多平台的快速安裝小專案，命名為 &lt;strong&gt;autosetup&lt;&#x2F;strong&gt;，以下是資料夾的架構。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;+ &#x2F;autosetup
+    + &#x2F;installers
+        + \_\_init\_\_.py
+        + viminstaller.py
+        + pyinstaller.py
+    + \_\_init\_\_.py
+    + \_\_main\_\_.py
+    + setup.py
+    + config.py
+    + util.py
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;setup.py&lt;&#x2F;code&gt;是專案中的主程式，他會分別呼叫&lt;code&gt;installers&lt;&#x2F;code&gt;資料夾中的不同安裝腳本。而那些安裝腳本會分別從&lt;code&gt;util.py&lt;&#x2F;code&gt;匯入常用函式。所有的程式都會從 &lt;code&gt;config.py&lt;&#x2F;code&gt; 中匯入一些使用者設定。&lt;&#x2F;p&gt;
+&lt;p&gt;依據剛剛的定義，這個大資料夾中其實包含了兩個套件，分別是 &lt;code&gt;autosetup&lt;&#x2F;code&gt; 跟&lt;code&gt;installers&lt;&#x2F;code&gt;,而且因為 &lt;code&gt;installers&lt;&#x2F;code&gt;套件是存在於&lt;code&gt;autosetup&lt;&#x2F;code&gt;套件下，所以可以將 &lt;code&gt;installers&lt;&#x2F;code&gt; 稱為 &lt;code&gt;autosetup&lt;&#x2F;code&gt;的&lt;strong&gt;子套件(subpackage)&lt;&#x2F;strong&gt;。&lt;&#x2F;p&gt;
+&lt;p&gt;python提供&lt;code&gt;絕對(absolute)&lt;&#x2F;code&gt;跟&lt;code&gt;相對(relative)&lt;&#x2F;code&gt;兩種不同的匯入方法。簡單來說。絕對的說法就是尋找一個固定的參考點來描述物體位置，而相對是透過另一個會變動的參考來描述物體位置，假設我想要描述&lt;strong&gt;交通大學&lt;&#x2F;strong&gt;的位址。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;絕對路徑的描述邏輯: 新竹市大學路1001號&lt;&#x2F;li&gt;
+&lt;li&gt;相對路徑的描述邏輯: 就...&lt;strong&gt;清華大學&lt;&#x2F;strong&gt;店隔壁的學校&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;兩者的差別就只是參照的角度不一樣，更多的觀念可以查看 &lt;a href=&quot;http:&#x2F;&#x2F;linux.vbird.org&#x2F;linux_basic&#x2F;0220filemanager.php#dir_pathway&quot;&gt;鳥哥的linux私房菜&lt;&#x2F;a&gt;。&lt;&#x2F;p&gt;
+&lt;p&gt;在絕對路徑中，python interpreter 會&lt;strong&gt;預先偵測目前最上層的套件名稱&lt;&#x2F;strong&gt;。在存取時都是以最上層開始一層層往下解析名稱。而相對路徑則是以當前檔案進行存取，&lt;code&gt;.&lt;&#x2F;code&gt;代表當前目錄,在這一外每多一個點都是往上一層套件的意思。可以使用 &lt;code&gt;..util&lt;&#x2F;code&gt;, &lt;code&gt;...util&lt;&#x2F;code&gt;等等...，要注意一下..跟後面的套件名稱不能分開。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-cong-zi-tao-jian-zhong-hui-ru&quot;&gt;1. 從子套件中匯入&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;從 &lt;code&gt;setup.py&lt;&#x2F;code&gt; 匯入 &lt;code&gt;installer.py&lt;&#x2F;code&gt; 跟 &lt;code&gt;config.py&lt;&#x2F;code&gt; (匯入子套件的模組)&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#setup.py 
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;installers &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pyinstaller &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#相對路徑匯入
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;autosetup&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;installer &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pyinstaller &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#絕對路徑匯入
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;2-cong-shang-ceng-tao-jian-zhong-hui-ru&quot;&gt;2. 從上層套件中匯入&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;從 &lt;code&gt;pyinstaller.py&lt;&#x2F;code&gt; 匯入 &lt;code&gt;util.py&lt;&#x2F;code&gt; 的 &lt;code&gt;install_program&lt;&#x2F;code&gt; 函式&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#pyinstaller.py
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from ..&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;util &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;install_program &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#相對路徑匯入
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;autosetup &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;install_program &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#絕對路徑匯入
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;main-py&quot;&gt;__main__.py&lt;&#x2F;h3&gt;
+&lt;p&gt;把一個專案打包成套件之後，或許也會想要有一個屬於專案的程式執行點，讓整個專案能夠簡單運行起來，就如同模組是可以被執行的，套件其實也是可以執行的。在模組裡面可以使用 &lt;code&gt;if __name__ == &#x27;__main__&#x27;&lt;&#x2F;code&gt;來達到效果，對應到套件中就是 &lt;code&gt;__main__.py&lt;&#x2F;code&gt;了。當我們執行一套件時，python interpreter 會去尋找套件目錄下的 &lt;code&gt;__main__.py&lt;&#x2F;code&gt;，並執行它，所以只要把對應的程式碼寫在 &lt;code&gt;__main__.py&lt;&#x2F;code&gt; 之中就可以了。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#__main__.py
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from . import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;setup
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;__name__ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;==  &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;__main__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;:
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;setup&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;hui-ru-ji-zhi-jie-shuo&quot;&gt;匯入機制解說&lt;&#x2F;h2&gt;
+&lt;p&gt;python的匯入機制其實十分簡單，但對新手來說卻存在一些小陷阱。
+稍微注意一下可以發現，我把 relative&#x2F;absolute import 專門寫在了 package 的標題下方。依據我自己的理解方式，匯入的機制分別依據模組跟套件有兩種不同規則。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;在模組中&lt;&#x2F;p&gt;
+&lt;p&gt;只能透過 sys.path 中有指定的目錄來進行匯入，所以如果單純想要匯入上層目錄的模組，就必須先使用sys.path.append(&#x27;..&#x27;)之後才能直接匯入。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;在套件中
+可以使用 相對&#x2F;絕對 的方式來進行其他模組或套件的存取。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;shi-yong-xin-de&quot;&gt;使用心得&lt;&#x2F;h2&gt;
+&lt;p&gt;我認為模組跟套件是python語言非常核心的概念之一。在python語言中，如果是想要達到包裝或是命名空間的效果的話，不一定要使用 class 方法，可以視情況採用套件來達到目的。&lt;&#x2F;p&gt;
+</content>
+	</entry>
+</feed>

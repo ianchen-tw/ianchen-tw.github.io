@@ -1,0 +1,714 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+	<title>IanChen - Dev</title>
+	<link href="https://ianchen.tw/tags/dev/atom.xml" rel="self" type="application/atom+xml"/>
+  <link href="https://ianchen.tw"/>
+	<generator uri="https://www.getzola.org/">Zola</generator>
+	<updated>2020-03-06T00:00:00+00:00</updated>
+	<id>https://ianchen.tw/tags/dev/atom.xml</id>
+	<entry xml:lang="en">
+		<title>An overview of LibraryOS and Unikernels</title>
+		<published>2020-03-06T00:00:00+00:00</published>
+		<updated>2020-03-06T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/libos-and-unikernels/" type="text/html"/>
+		<id>https://ianchen.tw/posts/libos-and-unikernels/</id>
+		<content type="html">&lt;p&gt;Cornell CS6410 - Advance Systems 是最近幾個月找系統領域經典論文的一個來源，幾個星期前翻到了 1995 年的論文 - Exokernel，&lt;&#x2F;p&gt;
+&lt;p&gt;比起實作內容，我更著重在這些技術被使用的場景跟發展發向分析。&lt;&#x2F;p&gt;
+&lt;p&gt;這篇內容是我在實驗室會議上報告時的草稿，也是我第一次嘗試梳理單一題目跨十幾年來的的發展狀況。
+簡單來說，這是我在兩週內梳理各篇論文後對於 Librariy OS 的理解。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;libos-and-unikernels&#x2F;front_img_unikernels-arch.png&quot; alt=&quot;Architecture of Unikerels&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;&lt;h2 id=&quot;ti-qian-cheng-qing&quot;&gt;提前澄清&lt;&#x2F;h2&gt;
+&lt;p&gt;Unikernels 不是OS, 也不是kernel，而是一種系統的統稱。&lt;&#x2F;p&gt;
+&lt;p&gt;Unikernels 是一種 single address space 系統。在這種系統裡面，沒有 user 跟 kernel space 的區別，使用者可以碰到過去所定義的 kernel 區段，但整個系統上面只存在單一使用者，可以想做 user 就是 kernel。系統的組件不再是撰寫程式時自動假設，而是要明顯的 &lt;code&gt;#include&lt;&#x2F;code&gt; 才能夠使用。
+可以從這裡看出來，這是一種特殊的系統，只要應用程式沒有用到檔案系統，打包後的系統甚至不需要檔案系統也可以使正常運作。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;single-addr-space.jpg&quot; alt=&quot;Single Address Space&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;但為什麼要這樣做，為什麼有東西會設計成這樣？
+原因是這種系統是編譯過後的產物，整個系統的目的就只有一個 - 成功運行使用者最開始指定的那支程式。有點像是軟體的 SoC，把一切都打包進同一塊區域。&lt;&#x2F;p&gt;
+&lt;p&gt;可先看系統架構圖&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;unikernels-arch.png&quot; alt=&quot;Architecture of Unikerels&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xing-qi-huan-jing-ying-yong-chang-jing&quot;&gt;興起環境(應用場景)&lt;&#x2F;h2&gt;
+&lt;p&gt;想要談這種系統，就要先稍微提一下他的誕生環境:&lt;&#x2F;p&gt;
+&lt;p&gt;如果你想架網站或服務，通常方法是到 AWS 或是 GCP 上租借。近幾年來，不管是因為購買硬體裝置佔位子或是不符合成本效益、使用者不想要自行管理伺服器，又或是想達到快速部署的效果，大部分的服務都漸漸轉向現有的雲端業務廠商。&lt;&#x2F;p&gt;
+&lt;p&gt;這些雲端廠商的主要優點是他們擁有大量運算資源跟使用者，可以透過虛擬化技術來確實的利用每一分硬體資源，高效率的經濟可以讓他們的硬體成本遠低於一般使用者。&lt;&#x2F;p&gt;
+&lt;p&gt;但就大部分使用情況來說，使用者租借伺服器大多只是為了架設單一服務，也就是說，在他們的虛擬化系統中往往只有一支程式在運行。試想，這種為了單一服務而部署整個 Linux kernel 的情況並不太有效率，首先，因為 Linux Kernel 的設計是為了支援世界上各式各樣的運算裝置所產生，正常程式根本用不到所有 Kernel 中的原始碼，好比說一個 TCP echo Server 根本不需要去理解各式各樣的 file server 架構。再來，Kernel 是為了多使用者而設計，當我們只有單一 process 的時候，是真的需要使用到這些針對多重使用者管理的程式碼嗎？
+現今這種直接部署整台機器的想法實際上是多佔用不少硬碟跟記憶體資源，而缺點也會隨著業務量的增加而逐漸明顯，這種雲端業務不是不能 scale，而是會 scale 的不好。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yuan-yuan-yu-zhu-yao-xiang-fa&quot;&gt;淵源與主要想法&lt;&#x2F;h2&gt;
+&lt;p&gt;回頭談談歷史:&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;exokernel&quot;&gt;Exokernel&lt;&#x2F;h3&gt;
+&lt;p&gt;在 Kernel 設計中，一直以來都是在 Microkernel 跟 Monolithic kernel 兩者之間徘徊，但 1995 年跑出來了另外一種不同維度的嘗試 --  &lt;code&gt;Exokernel&lt;&#x2F;code&gt;。&lt;code&gt;exo-&lt;&#x2F;code&gt; 一詞的意思是外面，基本上來說各位可以想成跟超人一樣內褲外穿，主要是嘗試將過去人認為作業系統要做的大部分事情搬移到 userspace 之中，讓真正的 kernel 只提供運行電腦所需的最小介面。&lt;&#x2F;p&gt;
+&lt;p&gt;你可以把電腦資源想像成一個房子，在這個情況下 &lt;code&gt;Exokernel&lt;&#x2F;code&gt; 扮演著守門人，使用者拿著身份憑證進入房間之後就可以自由使用資源，只不過使用者如果不跟 exokernel 合作，exokernel 就會直接跑進房子內讓使用者掃地出門。&lt;&#x2F;p&gt;
+&lt;p&gt;這種 Kernel 有什麼好處？最簡單的好處是因為大部分的程式碼都在 userspace 執行，使用者的程式執行時 CPU 可以不用頻繁在 userspace 跟 kernelspace 間來回切換，大幅度減少 context switch 頻率來換取大幅效能增進。第二個好處，也就是 Exokernel 的主要訴求 - 希望使用者可以不被傳統 Kernel 限制，自由控制底層行為來換取極端效能優化 - &lt;strong&gt;做事就要讓讓專家來，只有應用程式開發者才有那些 Know-how&lt;&#x2F;strong&gt;，一個作業系統使用的schedular，filesystem ，memory cache 可能跟一個高效能導向的雲端資料庫程式不太一樣，何不讓程式自行控制就好？&lt;&#x2F;p&gt;
+&lt;p&gt;但壞處呢？ 基本上在這種情況下使用者要知道怎麼操作底層物件，一般來說是透過一種叫做 Library OS 的函式庫。唯一的問題就是這類 OS 的針對性過高，不缺乏 (也不應該有) 泛型的抽象界面讓他的程式碼難以重用。成也低階，敗也低階，最後讓 exokernel 沒辦法成功改變世界。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;libos&quot;&gt;LibOS&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;LibOS 相關專案&lt;&#x2F;li&gt;
+&lt;li&gt;library OS 的沒落&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Exokernel 離開了， Library
+隨著現代 VMM (Virtual Machine Monitor) 的誕生，LibOS 就慢慢從人間淡出腳步，因為那種下放 OS 到 userspace 換取效能增進的方式沒辦法克服他本身的低兼容性問題。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;libos-de-di-er-ci-chang-shi&quot;&gt;LibOS 的第二次嘗試&lt;&#x2F;h3&gt;
+&lt;p&gt;時隔多年後，2011 時微軟發出了這麼一篇論文 - &lt;a href=&quot;https:&#x2F;&#x2F;www.microsoft.com&#x2F;en-us&#x2F;research&#x2F;wp-content&#x2F;uploads&#x2F;2016&#x2F;02&#x2F;asplos2011-drawbridge.pdf&quot;&gt;&lt;em&gt;Rethinking the Library OS form the Top Down&lt;&#x2F;em&gt;&lt;&#x2F;a&gt;，微軟在當時很實驗性的將 windows 7 重構出一個 Library OS 的版本，名字就叫做 Drawbridge，但這個 Library OS的設計卻不是放在過往 exokernel 強調的高效能導向，在 Drawbridge 的設計中，團隊嘗試解構出 windows 7 的核心功能，只向 Drawbridge 開出執行 win7 最必要的界面。 library OS 的這次的設計角度則站在核心安全性以及該如何透過把不必要的功能下放到 userspace 來因應快速迭代的 OS 設計上。&lt;&#x2F;p&gt;
+&lt;p&gt;Drawbridge 帶來了什麼影響？除了一個可以成功跑起 windows7 原生的 excel, powerpoint 與瀏覽器的 LibOS 之外，Drawbridge 因為只包含了使用者相關的程式碼，他們成功產生出一個記憶體跟硬碟用量極小的 kernel，在論文中提到，在當時的 win7 之中如果要開一個 win7 的VM, 需要大約 5G 的硬碟跟 512MB 的 RAM 空間，但 Drawbridge 只需要 64MB 硬碟空間跟 16MB 的記憶體用量。 算是開啟了虛擬映像檔極小化的可能性。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;libos-dai-zhu-yun-duan-yun-suan-zhong-xin-dan-sheng-unikernels&quot;&gt;LibOS 帶著雲端運算重新誕生 - Unikernels&lt;&#x2F;h2&gt;
+&lt;p&gt;隨著 2013 年提出了 unikernels ，library OS 又再次被提了出來，而這次 LibOS 又再被瞄準的機會則是雲計算。&lt;&#x2F;p&gt;
+&lt;p&gt;對於雲端計算 (AWS, GCP) 廠商來說，技術上最大化利潤的方式是盡可能在同一台硬體電腦中同時執行越多虛擬機越好，簡單來說，就是降低虛擬機 image 佔用的硬碟與記憶體資源。&lt;&#x2F;p&gt;
+&lt;p&gt;回想一下 LibOS 的特性，就是極小化 image 大小跟記憶體資源，原因是這些 image 只會包含需要的東西，而不是跟一般的 VM 一樣需要承裝整個 kernel code。&lt;&#x2F;p&gt;
+&lt;p&gt;而且，在新的雲端環境之下，被虛擬出來的作業系統原本要做的工作已經被雲端環境搶走，再做出過往包山包海的行為無疑是一種矛盾 — 過度的疊床架屋會導致效能低落。&lt;&#x2F;p&gt;
+&lt;p&gt;第一個被奪走的是抽象化的裝置介面：雲端環境的開給作業系統的“硬體接口”已經是有單一標準，被虛擬化過的介面。第二被奪走的是記憶體保護跟使用者切換功能：在 micro-service 的浪潮興起後，大部分被部署在雲端的系統都只會有單一使用者，一支程式在運作，從根本上的來說，這些被虛擬化出來的作業系統唯一要保護的只有自已的 address space，但問題是這個虛擬化機器如果壞掉只會有一個人在乎，就是那個唯一在使用虛擬機的 App 本身。&lt;&#x2F;p&gt;
+&lt;p&gt;Unikernel 的概念就是從這裡切入的，當我們在一個抽象化的環境之下，雲端廠商在乎的應該是一個最小化硬體配置的系統，盡可能地乾淨，省資源。&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Unikernels are specialized, single-address-space machine images constructed by using library operating systems.”&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;Unikernels 是一種只有單一 address space 的系統，使用者程式把針對 unikernl 設計的 LibOS 當作函式庫引入，然後透過他們的技術編譯出一個可以自己在硬體上或是 Hypervisor 中開機並且正常運作的系統，而這個系統的為一目的就是運作那個被打包的 App 本身。&lt;&#x2F;p&gt;
+&lt;p&gt;由於整個系統是用函式庫的方式引入，編譯器可以直接靜態分析並只打包出使用者程式運作時所需要的組建。這樣在部署的時候只會有必要的程式碼，也只會跑必要的程式碼。&lt;&#x2F;p&gt;
+&lt;p&gt;這個系統跟過去的 Library OS 基本上相似的，第一個是 library  OS 下面ㄧ樣會墊一層介面，在以前的話那層介面是 exokernel，而在 exokernel 之中現在那層介面則是 hypervisor (又或是 docker container，docker 有針對這個技術進行開發, [&lt;a href=&quot;https:&#x2F;&#x2F;school.soft-arch.net&#x2F;blog&#x2F;2437&#x2F;docker-unikernel&quot;&gt;註1&lt;&#x2F;a&gt;], [&lt;a href=&quot;https:&#x2F;&#x2F;containerjournal.com&#x2F;features&#x2F;unikernels-another-name-linuxkit-dockers-long-term-strategy&#x2F;&quot;&gt;註2&lt;&#x2F;a&gt;])。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;you-shi-mo-hao-chu&quot;&gt;有什麼好處&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;最小化  attack surface ，沒有多餘侵入點&lt;&#x2F;li&gt;
+&lt;li&gt;應該拿不到 shell 指令，因為根本沒用到，所以拿不到權限&lt;&#x2F;li&gt;
+&lt;li&gt;沒辦法讓機器去執行在編譯時沒包入的程式碼，機器不會被侵入者去做其他用途&lt;&#x2F;li&gt;
+&lt;li&gt;沒有 user &#x2F;kernel space的問題 (根本上的效能提升)&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;在論文中他們有提到，這種實作選擇也可以大幅提高程式安全性，因為只有必要的東西，部署的服務有時候根本連 shell 都沒有，一個天生拿不到 shell 權限的系統，基本上能少掉不少隱憂。再加上他們的實作方式，他們可以在系統中確保這個程式只能執行最一開始被編譯的程式碼，這樣也能讓入侵者沒辦法自由運行自己撰寫的程式。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;unikernels-lun-wen-zhong-de-shi-jian-cheng-guo&quot;&gt;Unikernels 論文中的實踐成果&lt;&#x2F;h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Despite this shift from applications running on multi-user operating systems to provisioning many instances of single-purpose VMs, there is little actual specialisation that occurs in the image that is deployed to the cloud. &lt;&#x2F;p&gt;
+&lt;p&gt;We take an extreme position on specialisation, treating the ﬁnal VM image as a single purpose appliance rather than a general-purpose system by stripping away functionality at compile-time.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The entire software stack of system libraries, language runtime, and applications is compiled into a single bootable VM image that runs directly on a standard hypervisor&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;超低 boot time&lt;&#x2F;li&gt;
+&lt;li&gt;超小 image size : 個位數 MB&lt;&#x2F;li&gt;
+&lt;li&gt;超小 記憶體用量:&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;唯一的缺陷就是指支援單一 process，但在後來的論文顯示如果要實踐 multiple processes 的話可以改採用多個 image 來進行協作。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;why-aren-t-unikernels-more-popular&quot;&gt;Why aren’t unikernels more popular&lt;&#x2F;h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The root of the problem lies in the way that unikernels have been developed. As of today, the creation of a new unikernel followed one of two approaches: a clean slate approach where the kernel is largely built from scratch, or a strip down approach where an existing kernel codebase is stripped of functionality deemed unnecessary for the unikernel. With a clean slate approach, unikernel designers have full control over the language and methodology used to construct the kernel. With such freedom, the resulting implementation can be extremely specialized and limited to particular class of application (for example, MirageOS only supports applications written in OCaml [21]). Implementations in clean-slate unikernels can also be finely-tuned for performance and provide efficient, low-level interfaces that applications can be directly written for.&lt;&#x2F;p&gt;
+&lt;p&gt;Unikernels such as OSv [17], IncludeOS [9], and EbbRT [29] attempt to balance high-performing components together with a C-standard runtime and partial support for common POSIX-like interfaces. The problem is that clean-slate unikernels cannot (and should not) hope to support the same myriad of interfaces and options provided by a general purpose kernel, at least not without abandoning or obfuscating the efficient pathways and finely-tuned implementation that make a clean slate approach attractive to begin with.&lt;&#x2F;p&gt;
+&lt;p&gt;With limited support for legacy software, porting and supporting existing applications on a clean slate unikernel becomes a non-trivial endeavour, and may be quickly deemed “not worth the effort.”&lt;&#x2F;p&gt;
+&lt;p&gt;-- &lt;strong&gt;&lt;em&gt;Unikernels: The Next Stage of Linux’s Dominance&lt;&#x2F;em&gt;&lt;&#x2F;strong&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;Unikernels 之所以沒有被廣泛使用的主因是來自於底層 LibOS 被建立的方式 - 要不使用 clean slate (重新打造 OS ) 就是直接修改現有 OS 來實做 （比如說移除掉不少組件）&lt;&#x2F;p&gt;
+&lt;p&gt;第一種重新打造 OS 是 Unikernels 當初這篇論文所採用的方式， MirageOS 是使用 OCaml 語言撰寫 (跟 Xen ) 相同，基本上只支援使用 OCaml 撰寫的程式，優點是根據他的實踐方法會具有高度安全性，還有針對這種雲端架構所撰寫的 OS 具有高度效能，這類程式沒有理由去管理向後兼容性，他的目標就只是打造出一個超高安全性跟效能的未來雲端標準。有些人覺得太誇張，所以會打造出兼容 POSIX api，又或是標榜可以直接與 Linux 程式兼容，但問題是這些API過於廣泛，會讓新打造出來的 OS 實作缺乏針對性，進而產生效能折扣而讓其他人失去想要用他們的理由 (比如說只能縮小記憶體用量，但並非使用被廣泛信賴的 Linux Kernel ，會讓人不想使用)。&lt;&#x2F;p&gt;
+&lt;p&gt;如果想要完全享受到 Unikernel  的好處，基本上就是要採用高度客製化的 LibOS，雖然如 Mirage OS 已經被 Linux foundation 納入旗下，但採用這些東西代表要對現在使用的軟體跟OS對接的全部改寫，包含專案相依賴到的套件也必須重寫，過大的成本將高階程式開發者從 Unikernel 中推開。&lt;&#x2F;p&gt;
+&lt;p&gt;第二種打造的方法是直接拿現有 Linux Kernel 進行修改，但這種問題是通常就只是拿了一次就在也沒辦法跟上 Kernel 的進展，還需要額外人力去不斷 merge kernel 進來，在長期來看是吃力不討好的事情。&lt;&#x2F;p&gt;
+&lt;p&gt;不管如何，這類高移植成本的科技會大幅度限縮採用 Unikernels 的用戶群，只剩下需要高安全性&#x2F;高效能&#x2F;大流量服務的開發商，又或是提供的服務本身就已經很底層，不需要重寫太多相依 Library 的客戶。&lt;&#x2F;p&gt;
+&lt;p&gt;這些東西讓 Unikernels 在實務上最可能採用的客戶就是網路通訊商。比如說 &lt;a href=&quot;https:&#x2F;&#x2F;www.fiercewireless.com&#x2F;wireless&#x2F;verizon-reports-major-milestone-virtualization-path&quot;&gt;Verizon&lt;&#x2F;a&gt; 近幾年大幅度發展 5G 架構服務，大量使用 VM 來部屬他們的伺服器。提供通訊層級服務代表不用改寫太多 stack，Unikernels 帶來的安全性跟高效率儲存空間(RAM) 讓他們有理由，也有足夠成本效益去開發 Unikernels。 這樣也才讓 Unikernels 很難以打入主流。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xin-de-xi-wang&quot;&gt;新的希望&lt;&#x2F;h2&gt;
+&lt;p&gt;Redhat 在  2018 公開了一篇文章，希望可以將 Linux kernel 當作 LibOS 來製作 Unikernl，這個已經有一個初步的結果，而且登上了 HotOS 2019，主要想法是在 Glibc 準備 syscall 之前墊上一層靜態函式庫，&lt;&#x2F;p&gt;
+&lt;p&gt;修改 linux boot 跟 thread 控管的程式碼，據他們宣稱大約修改 30 多行 linux 程式碼就可以完成，這種幅度的改動是最可能被融合進入 linux main ，我們可以找到目前的發展方向。&lt;&#x2F;p&gt;
+&lt;p&gt;不過這當然還不算是一個可以的研究成果，但或許是標誌著 Unikernel，或是雲端化科技會慢慢變成下一步 Linux 的發展方向之一。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jing-zheng-pin-bi-jiao&quot;&gt;競爭品比較&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;docker 的關係：&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;雖然 Unikernels 會是一種專門為雲端而產生的科技，大家可能會想到最近比較熱門的 docker (Container) 或許潛在的競爭者。是的，但有趣的事情是 docker 他們已經買下了 Unikernel Systems 。Docker 正在致力於將 Unikernel 的技術整合進自己的生態系之下。&lt;a href=&quot;http:&#x2F;&#x2F;unikernel.com&#x2F;&quot;&gt;註 - Unikernel joins Docker - 21. Jan. 2016&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;Docker 中的競爭者: Alpine linux：&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Alpine 是一個 linux 的輕量實踐版本，標榜由於 kernel 很小，所以生成的 image  會極小化，是目前使用 docker container 的用戶在縮小 image 時會參考的 base image 選項。&lt;&#x2F;p&gt;
+&lt;p&gt;所以跟使用 Alpine linux 的 docker 相比，Unikernel 的優勢只會剩下靜態檢查的安全性跟可以移除用不到的科技。&lt;&#x2F;p&gt;
+&lt;p&gt;我認為 Unikernel System (新創) 之所以會被 Docker 吃下來的一個原因也是 Alpine linux 存在所給予的壓力。但這兩者並不是相斥的科技，所以當 Unikernels 被融入 Linux 後或許 Alpine linux 也可以結合 Unikernel 的想法讓他更安全，更小化。&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;User Mode Linux (UML)&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;UserMode Linux 的主要用途仍在開發 Linux 核心組件之上，而不是用於產品部署，從核心發展方向上並沒有與 unikernel 相互競爭。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;userful-links&quot;&gt;Userful links&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;next.redhat.com&#x2F;2018&#x2F;11&#x2F;14&#x2F;ukl-a-unikernel-based-on-linux&#x2F;&quot;&gt;UKL: A Unikernel Based on Linux&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;分析 unikernel 為什麼目前還沒被廣泛使用&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetic&#x2F;unikernels&quot;&gt;cetic&#x2F;unikernels&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;很詳細的介紹 unikernel 的起源、用途，以及簡單分析&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;(Nov 2015) &lt;a href=&quot;http:&#x2F;&#x2F;northox.github.io&#x2F;qubes-rumprun&#x2F;&quot;&gt;Enhancing Qubes with Rumprun unikernels&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;lun-wen&quot;&gt;論文&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;(2019) &lt;a href=&quot;https:&#x2F;&#x2F;dl.acm.org&#x2F;citation.cfm?id=3321445&quot;&gt;Unikernels: The Next Stage of Linux&#x27;s Dominance&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;(2013) &lt;a href=&quot;https:&#x2F;&#x2F;dl.acm.org&#x2F;citation.cfm?id=2451167&quot;&gt;Unikernels: library operating systems for the cloud&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;(2011) &lt;a href=&quot;https:&#x2F;&#x2F;www.microsoft.com&#x2F;en-us&#x2F;research&#x2F;wp-content&#x2F;uploads&#x2F;2016&#x2F;02&#x2F;asplos2011-drawbridge.pdf&quot;&gt;Rethinking the Library OS from the Top Down&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;other-topics&quot;&gt;Other topics&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=9846452&quot;&gt;What&#x27;s the difference between unikernel and exokernel?&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>使用 Docker 設置開發環境</title>
+		<published>2020-02-15T00:00:00+00:00</published>
+		<updated>2020-02-15T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/develop-with-docker/" type="text/html"/>
+		<id>https://ianchen.tw/posts/develop-with-docker/</id>
+		<content type="html">&lt;p&gt;這套流程最初是為了交大資工游逸平老師的編譯器課程作業所設計，目的是讓對 docker 完全沒有經驗的大學部同學也能快速使用我們的作業環境，並且作為未來作業全自動化批改的重要里程碑。&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;這門課程作業正在被助教群快速翻新來跟上時代中。如果你對課程有興趣且你是交大學生，可以來修看看，體驗看看這門我有自信成為交大資工教材最完整跟紮實的課程(助教自己說)，並用你的人頭數來實際增加我的助教薪水。(拜託)&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;biao-zhun-gong-zuo-liu-cheng&quot;&gt;標準工作流程&lt;&#x2F;h2&gt;
+&lt;ol&gt;
+&lt;li&gt;進入專案目錄&lt;&#x2F;li&gt;
+&lt;li&gt;執行  &lt;code&gt;activate_docker.sh&lt;&#x2F;code&gt; (實際上就是呼叫 activate_docker.py)&lt;&#x2F;li&gt;
+&lt;li&gt;直接開始開發&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;h3 id=&quot;te-xing-jie-shao&quot;&gt;特性介紹&lt;&#x2F;h3&gt;
+&lt;p&gt;這個工作流程就是模仿一般有虛擬話開發環境的使用模式，但實際上是直接進入一個乾淨的 docker 系統，我們會直接把呼叫 &lt;code&gt;activate_docker.sh&lt;&#x2F;code&gt; 時的工作目錄掛載到 docker 中的家目錄之下，並且同時完成使用者身份對應，讓你避免掉奇怪的檔案權限問題處理。&lt;&#x2F;p&gt;
+&lt;p&gt;這裡的所有檔案都放在 &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;ianre657&#x2F;setup-develop-env-with-docker&quot;&gt;Github&lt;&#x2F;a&gt; 上，你可以從上面拿到我的程式碼。&lt;&#x2F;p&gt;
+&lt;p&gt;接下來我會解釋這個東西的設計方法，並且如果你想把這份程式碼當範本的話，你該怎麼做&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;makefile&quot;&gt;Makefile&lt;&#x2F;h2&gt;
+&lt;p&gt;第一份要看的資訊是 Makefile ，所有可以客製化的變數都在 Makefile 中，比如說進入 container（容器）中的使用者&#x2F;群組名稱、主機名稱等，透過這個 Makefile 來集中管理並在下指令時傳入。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Makefile&quot; data-lang=&quot;Makefile&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;all&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; build
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;.PHONY&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; build activate
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;# Do not named user and group the same, this would cause error in entrypoint.sh
+#	because we create the group before user exist which allowing name-crash in useradd command
+CONTAINER_USERNAME = ian
+CONTAINER_GROUPNAME = iang
+CONTAINER_HOSTNAME = dev-env
+IMAGE_NAME ?= my-dev-env
+
+HOMEDIR = &#x2F;home&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_USERNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;build&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; Dockerfile
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;	docker build &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		--build-arg CONTAINER_USERNAME=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_USERNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		--build-arg CONTAINER_GROUPNAME=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_GROUPNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		--build-arg CONTAINER_HOMEDIR=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		-t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;$(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;IMAGE_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; .
+
+activate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;python3 activate_docker.py &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--username &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_USERNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--homedir &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--imagename &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;IMAGE_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--hostname &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_HOSTNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在知道 Makfile 的用處之後，就可以讀一下實作功能的檔案們，
+第一位: dockerfile。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;dockerfile-entrypoint-sh&quot;&gt;dockerfile &amp;amp;&amp;amp; entrypoint.sh&lt;&#x2F;h2&gt;
+&lt;p&gt;以製作 python3.8 的環境當作範例，首先你會需要一份可以動的 dockerfile&lt;&#x2F;p&gt;
+&lt;p&gt;可以注意一下這個檔案除了安裝 Python 外有哪些不一樣的地方（還有 Makfile 傳入的變數）&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Dockerfile&quot; data-lang=&quot;Dockerfile&quot;&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;FROM&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; ubuntu:18.04
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;PYTHON3_VERSION=3.8
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;RUN &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;apt-get update \
+  &amp;amp;&amp;amp; apt-get install gosu \
+  &amp;amp;&amp;amp; apt-get install -y software-properties-common &amp;amp;&amp;amp; add-apt-repository -y ppa:deadsnakes&#x2F;ppa \
+      &amp;amp;&amp;amp; apt-get install -y python${PYTHON3_VERSION} \
+      &amp;amp;&amp;amp; ln -sfn &#x2F;usr&#x2F;bin&#x2F;python${PYTHON3_VERSION} &#x2F;usr&#x2F;bin&#x2F;python3 \
+      &amp;amp;&amp;amp; ln -sfn &#x2F;usr&#x2F;bin&#x2F;python${PYTHON3_VERSION} &#x2F;usr&#x2F;bin&#x2F;python
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;RUN &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;apt-get install -y gosu make
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CONTAINER_USERNAME=dummy
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CONTAINER_GROUPNAME=dummyg
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CONTAINER_HOMEDIR=&#x2F;home&#x2F;dummy
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USERNAME_PASSIN ${CONTAINER_USERNAME}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_GROUPNAME_PASSIN ${CONTAINER_GROUPNAME}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_HOMEDIR_PASSIN ${CONTAINER_HOMEDIR}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# indicate we are inside docker
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;STATUS_DOCKER_ACTIVATED 1
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;COPY&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; entrypoint.sh &#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;RUN &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;chmod +x &#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;CMD &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;bin&#x2F;bash&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;ENTRYPOINT &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這份 dockerfile 最重要的是最後兩行指令 :&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Dockerfile&quot; data-lang=&quot;Dockerfile&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CMD [&amp;quot;&#x2F;bin&#x2F;bash&amp;quot;]
+ENTRYPOINT [&amp;quot;&#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh&amp;quot;]
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這裏一次用到了  &lt;code&gt;CMD&lt;&#x2F;code&gt; 跟 &lt;code&gt;ENTRYPOINT&lt;&#x2F;code&gt;，在同時用到這兩個指令時會在 Container( 容器 ) 啟動時強制執行 &lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt; 後才會執行預設的 CMD 指令&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt; 的存在是為了動態將使用者在 host system (原本的系統環境) 跟 container 中檔案系統所顯示的使用者身份關聯起來。&lt;&#x2F;p&gt;
+&lt;p&gt;簡單來說，如果使用者在原本系統中的 uid (user id)跟 pimary gid (group id) 是1008 跟 1009，那他進入這份  &lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt; 的docker container 之後所創建的所有檔案的所有權仍是 1008 跟 1009，當使用者離開環境之後看見所有在 container 下創建的檔案所有權都會是自己。&lt;&#x2F;p&gt;
+&lt;p&gt;會這樣做的背後原因很簡單，就是在 contianer image 中系統無法被修改的情況下追求最大的使用彈性，讓各式各樣的人都能在自己的系統中使用相同的 docker image 作為開發環境（原本的目的就是課程使用）。 所以如果想要建立的 docker image 不是屬於這種情況的話可以參考 &lt;a href=&quot;https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;&quot;&gt;Handling-permissions-with-docker-volumes&lt;&#x2F;a&gt; 中所提到的其他方式。&lt;&#x2F;p&gt;
+&lt;p&gt;除了 entrypoint 本身之外， &lt;code&gt;apt-get install gosu&lt;&#x2F;code&gt; 也是與他一起連動的，這是為了解決 Linux 的 su 指令無法正確達成 container 下的 signal 處理需求。&lt;&#x2F;p&gt;
+&lt;p&gt;在介紹完這個 dockerfile 之後 就要介紹一下輔助我們進入環境的腳本文件: &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;activate-docker-py&quot;&gt;activate_docker.py&lt;&#x2F;h2&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Python&quot; data-lang=&quot;Python&quot;&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;sys
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;subprocess
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pathlib
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;argparse
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pathlib &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;Path
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;os
+
+parser &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;argparse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;ArgumentParser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;description&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;Activate homework environment for compiler-s20&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-u&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--username&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;student&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;,)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--hostname&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;compiler-s20&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--homedir&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;home&#x2F;student&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-i&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--imagename&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;compiler-s20-env&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parse_args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USER_NAME &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;username
+DOCKER_HOST_NAME &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;hostname
+DOCKER_IMG_NAME &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;imagename
+dk_home &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;homedir
+
+dirpath &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;path&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;dirname&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;path&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;abspath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;__file__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;))
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;def &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;():
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;STATUS_DOCKER_ACTIVATED&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot; in &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;environ&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;print&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;You are already inside our docker environment, see?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;)
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;sys&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;exit&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;)
+
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;cwd &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getcwd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;bash_his &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;Path&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;dirpath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;.history&#x2F;docker_bash_history&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;bash_his&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parent&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;mkdir&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;exist_ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;True&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;)
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;bash_his&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;touch&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;exist_ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;True&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;)
+
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;docker_options &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= [
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;docker&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;run&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--rm&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-it&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--hostname&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_HOST_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;LOCAL_USER_ID=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getuid&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()}&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;LOCAL_USER_GID=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getgid&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()}&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-v&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getcwd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;:&#x2F;home&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&amp;#39;,
+
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# bash history file
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-v&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;dirpath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;.history&#x2F;docker_bash_history:&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;dk_home&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;.bash_history&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_IMG_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;,
+   ]
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;system&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;#39; &amp;#39;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;join&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;docker_options&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;))
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;__name__ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;== &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;__main__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;:
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;.&#x2F;activate_docker.py&lt;&#x2F;code&gt; 的主要用處有幾個:
++ 使用 docker volume 將當前目錄對應到使用者家目錄下
++ 將使用者身份對應到系統內部
++ 保存必要的指令輸入紀錄，讓你在進出 docker 環境時還能快速搜尋過去歷史
++ 避免重複呼叫 &lt;code&gt;.&#x2F;activate_docker.py&lt;&#x2F;code&gt; 來遞迴進入 docker 環境&lt;&#x2F;p&gt;
+&lt;p&gt;大部分的程式碼其實並不難，但你可能會比較在意我們是如何判斷使用者已經進入環境了的。也就是 &lt;code&gt;STATUS_DOCKER_ACTIVATED&lt;&#x2F;code&gt; 這個變數到底是從哪裡冒出來的呢？&lt;&#x2F;p&gt;
+&lt;p&gt;回頭看看 Dockerfile 就能找到了！&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Dockerfile&quot; data-lang=&quot;Dockerfile&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# indicate we are inside docker
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;ENV STATUS_DOCKER_ACTIVATED 1
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;我們使用 ENV 指令在系統環境中直接設置一個環境變數，這樣做的目的是避免對 docker 不熟悉的學生誤觸指令，能省去新手學生掉入不知名 bug 的時間。&lt;&#x2F;p&gt;
+&lt;p&gt;好的，接下來就是 docker image 的進入點 : &lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;entrypoint-sh&quot;&gt;entrypoint.sh&lt;&#x2F;h2&gt;
+&lt;p&gt;這份的原始碼大部分是從 denibertovic 的&lt;a href=&quot;https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;&quot;&gt;文章&lt;&#x2F;a&gt; 中所修改而成。
+我會大概介紹一下他在做什麼，還有我做了哪些修改。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#!&#x2F;bin&#x2F;bash
+
+# reference : https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;LOCAL_USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;9001&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_GID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;LOCAL_USER_GID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;9001&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=`&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;echo &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USERNAME_PASSIN&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;`
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;GROUP_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=`&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;echo &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_GROUPNAME_PASSIN&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;`
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=`&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;echo &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_HOMEDIR_PASSIN&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;`
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;groupadd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;g &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_GID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} ${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;GROUP_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;[[ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;d &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;]]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;then
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# supress home already exist warning
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;useradd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;shell&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; &#x2F;bin&#x2F;bash&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;u &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;o&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;c &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&amp;quot; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;m &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;&#x2F;dev&#x2F;null
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;else
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;useradd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;shell&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; &#x2F;bin&#x2F;bash&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;u &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;o&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;c &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&amp;quot; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;m &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;fi
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;usermod&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;g &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;GROUP_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} ${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;cd &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;exec &#x2F;usr&#x2F;sbin&#x2F;gosu &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} &amp;quot;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ec5f67;&quot;&gt;@&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這份程式碼的目的就是在系統中使用 host system 的 uid 跟gid來即時新增使用者。
+唯一不同的是，我使用了 &lt;code&gt;DOCKER_USERNAME_PASSIN&lt;&#x2F;code&gt;, &lt;code&gt;DOCKER_GROUPNAME_PASSIN&lt;&#x2F;code&gt;, &lt;code&gt;DOCKER_HOMEDIR_PASSIN&lt;&#x2F;code&gt; 三個變數。
+這些環境變數一樣也是從 Dockerfile 中設置而來。而 Dockerfile 也只是擔任轉介 Makefile 中的內容而已。&lt;&#x2F;p&gt;
+&lt;p&gt;最後，我們可以看看 activate_docker.sh。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;activate-docker-sh&quot;&gt;activate_docker.sh&lt;&#x2F;h2&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Bash&quot; data-lang=&quot;Bash&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;#! &#x2F;bin&#x2F;bash
+make activate
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;只有兩行。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;liang-xing-de-bei-hou-yong-yi&quot;&gt;兩行的背後用意&lt;&#x2F;h3&gt;
+&lt;p&gt;其實 &lt;code&gt;activate_docker.sh&lt;&#x2F;code&gt; 的唯一目的就只是呼叫 &lt;code&gt;make activate&lt;&#x2F;code&gt; 指令，而 &lt;code&gt;make activate&lt;&#x2F;code&gt; 也就只是呼叫 &lt;code&gt;activae_docker.py&lt;&#x2F;code&gt; 而以，一個簡單的想法是，為什麼不要直接把 &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt; 設定成可以直接呼叫，然後就直接呼叫 &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt; 就好了呢？&lt;&#x2F;p&gt;
+&lt;p&gt;第一也是最重要的原因：方便管理 - 我們為了把變數共享在 makefile 中，讓開發者在未來想修改時只修改 makefile 的單一變數就能完成。
+第二點是 &lt;code&gt;make activate&lt;&#x2F;code&gt; 指令本身難以用 tab 自動補全，只要不是 fish shell 用戶基本上就&lt;strong&gt;一定需要打字&lt;&#x2F;strong&gt;，使用另外一個 shell script 讓我們可以只輸入 &lt;code&gt;.&#x2F;&amp;lt;tab&amp;gt;&lt;&#x2F;code&gt; 就完成效果。 這樣在使用的體驗上會更加流暢。&lt;&#x2F;p&gt;
+&lt;p&gt;第三點則跟專案架構有關 : 我們為了課程作業的新手導向需求，故意修改過專案架構，所以跟這裏擺出來的畫面有些不同。
+在課程的作業設計之中，我採取把對於完成作業不需要知道的知識隱藏起來，降低新手們的認知負擔。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;tui-jian-de-zhuan-an-jia-gou-mo-shi&quot;&gt;推薦的專案架構模式&lt;&#x2F;h3&gt;
+&lt;p&gt;同上所述，如果你想把專案打包給新手使用，你可以嘗試把大部分跟 docker 有關的程式碼都藏進另一個資料夾中(&#x2F;docker)，專案主目錄中只留下 &lt;code&gt;activae_docker.sh&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;p&gt;在這裡把我設計的作業資料夾架構放在這裏給你參考。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;compiler-hw1&#x2F;
+├── Makefile
+├── activate_docker.sh
+├── docker
+│   ├── Dockerfile
+│   ├── Makefile
+│   ├── activate_docker.py
+│   └── entrypoint.sh
+├── src
+│   └── main.cpp
+└── test
+    ├── test.py
+    └── testcase
+        ├── answer
+        └── output
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;geng-duo-you-hua-jian-yi&quot;&gt;更多優化建議&lt;&#x2F;h2&gt;
+&lt;p&gt;在理解完基本的架構之後，這裡提供一些想法來讓你將 docker 應用到你的開發環境中。&lt;&#x2F;p&gt;
+&lt;p&gt;如果你想縮小 docker image 編譯出的大小，我會考慮使用 Multistage build 並盡可能在 dockerfile 中減少 &lt;code&gt;RUN&lt;&#x2F;code&gt; 指令的使用次數。（在這份 dockerfile 中為了清楚並沒有這麼做）。甚至是採用 alpine linux 當作基本發行版。只不過要注意的是， alpine linux 因為只是在系統功能上實踐最基本介面，這麼做的後果有可能會拖慢你開發環境系統的效能。&lt;&#x2F;p&gt;
+&lt;p&gt;如果你想要使用不同的 shell，你會需要自己理解這些 shell 有哪些 history file 並自行修改 &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt; 來掛載到目標 container 之中。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;tui-jian-yue-du-yu-can-kao&quot;&gt;推薦閱讀與參考&lt;&#x2F;h2&gt;
+&lt;p&gt;如果你也想要用 docker 當作自己的開發環境，這裏推薦我在設計時讀過的一些文章以及 dockerfile 參考，讀完之後相信會對你很有幫助。&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;docker container 身份對應&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;jtreminio.com&#x2F;blog&#x2F;running-docker-containers-as-current-host-user&#x2F;&quot;&gt;Running Docker Containers as Current Host User&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;&quot;&gt;Handling-permissions-with-docker-volumes&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;推薦的 makefile 以及 dockerfile&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;marmelab&#x2F;make-docker-command&#x2F;blob&#x2F;master&#x2F;Makefile&quot;&gt;marmelab&#x2F;make-docker-command&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;h2 id=&quot;jie-yu&quot;&gt;結語&lt;&#x2F;h2&gt;
+&lt;p&gt;分享完畢，有任何想法的話也希望你可以到 &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;ianre657&#x2F;setup-develop-env-with-docker&quot;&gt;Github&lt;&#x2F;a&gt; 上回饋給我，又或是寫 email 告知
+我們下次再見~&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Github 編譯器課程改革 - 我在交大資工</title>
+		<published>2020-01-17T00:00:00+00:00</published>
+		<updated>2020-01-17T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/2020-compiler-redesign-in-nctu/" type="text/html"/>
+		<id>https://ianchen.tw/posts/2020-compiler-redesign-in-nctu/</id>
+		<content type="html">&lt;p&gt;資工系大學四年，我最討厭的就是寫作業。&lt;&#x2F;p&gt;
+&lt;p&gt;討厭寫了一個專案，設計出一個好架構之後助教卻說把所有程式碼放進同一個檔案。
+&lt;&#x2F;br&gt;討厭那些不負責任的作業說明，總是什麼都沒寫卻要求學生做一堆東西。
+&lt;&#x2F;br&gt;討厭總是把所有人成績公告出來，一點都不尊重學生的隱私權。
+&lt;&#x2F;br&gt;討厭繳交作業的前一刻學校的 e3 系統在維修，不然就是期末考期間一次次的當機。
+&lt;&#x2F;br&gt;討厭沒有美感的課程網站設計。&lt;&#x2F;p&gt;
+&lt;p&gt;但我更討厭當個只會抱怨的廢物。
+&lt;&#x2F;br&gt;所以我決定做個嘗試，把這些問題通通解決。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2020-compiler-redesign-in-nctu&#x2F;landing-img.jpg&quot; alt=&quot;course&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;2019.6 - 2020.1&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xin-de&quot;&gt;心得&lt;&#x2F;h2&gt;
+&lt;p&gt;2019 年 6 月初我向老師提出了大學部編譯器課程未來作業改使用 Git 繳交的想法，目標是讓同學能夠脫離原始時代開發方式，開始使用版本控管，並且以寫專案的態度來完成作業，藉此踏入真正有用的程式開發階段。&lt;&#x2F;p&gt;
+&lt;p&gt;恰巧同時我也知道益揚在修完大學部編譯器後也開始研究該如何修改作業樣貌，改善課程品質。在一邊改革一邊跑課程的情況之下，也勉強撐過第一學期，於是在學期結束前做個完整回顧。&lt;&#x2F;p&gt;
+&lt;p&gt;這個學期的經驗感覺起來像小創業的感覺，主要是因為課程進度是隨著時間不斷推進，往往沒有充裕時間能依心中順序做想做的事情，也沒辦法把一切完善成心中的極致模樣。出於時間緊迫，我每星期都需要重新檢視並設定我的計畫，甚至需要因為時程做出一些妥協，比如說放棄撰寫某些教學文件，又或是除掉某些想做的功能。&lt;&#x2F;p&gt;
+&lt;p&gt;過去的我可能會覺得妥協是件萬萬不可的壞事，但在這學期我卻常發現 -- 正因為面臨妥協，我才被逼著回頭省視目標事物的本質，做完思考後再對我的工作進行剪裁，把心思專注在最重要的體驗之上，或許就是因此才能讓我們的課程得以更進一步，變成更有用的東西。&lt;&#x2F;p&gt;
+&lt;p&gt;在這學期的繁忙之下，我養成了個有趣習慣：每天用筆在紙上寫下我的代辦清單，即便我大部分的筆記也透過 ipad 跟 apple pencil 電子化，我仍舊認為用一張 A4 空白紙規劃每天行程是件無法取代的事情，在質感而言，紙本的粗糙感更勝於玻璃螢幕，除此之外，手寫字之於我更像是種每日儀式，帶來的安心感能取代一切。&lt;&#x2F;p&gt;
+&lt;p&gt;最後，我認為在這學期中遇見的所有問題都是人的問題，一件事情該怎麼做從來就沒有個標準解法，以人的角度出發，才能真正做出一件有人想用的東西。&lt;&#x2F;p&gt;
+&lt;p&gt;謝謝這學期 SSLab 其他碩一的小夥伴：&lt;code&gt;宇勝&lt;&#x2F;code&gt;，&lt;code&gt;益揚&lt;&#x2F;code&gt;，還有 &lt;code&gt;我自己&lt;&#x2F;code&gt;，謝謝逸平老師給我這個機會去嘗試做我想做的事情，也謝謝這學期的每位修課生。&lt;&#x2F;p&gt;
+&lt;p&gt;雖然我們在課程上花的大部分心力其實學生都是看不見的，但我想一個有能力的人不能只是讓自己窮忙，而是要在有想法之下做出有意義之事。&lt;&#x2F;p&gt;
+&lt;p&gt;附上今年修訂自己履歷表時硬寫上的一句話：&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I believe compassion is the most valuable trait in a man. By practicing this he could build things that truly motivate people.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;這學期的核心目標是提升交大資工編譯器課程的修課體驗，體驗有很多種，不過我認為最簡單的幾點就是一開始提到的：明確，具有教學意義的作業說明，尊重同學的隱私權，穩定可靠的系統，跟具有設計感的網站設計，還有學生跟助教間的高互動性。不管這學期做了些什麼，都是以此作為目標進行優化。&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;p&gt;以下大概紀錄了這學期做了些什麼東西&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ke-cheng-wang-zhan&quot;&gt;課程網站&lt;&#x2F;h2&gt;
+&lt;p&gt;六月初踏出的第一個嘗試是策劃新課程網站，有趣的是網站在真正做出來前都沒跟老師正式提到過。
+最初的想法是網站不僅要好看，也要對這門課程提供足夠的資訊。&lt;&#x2F;p&gt;
+&lt;p&gt;一個網站，有什麼困難的呢？&lt;&#x2F;p&gt;
+&lt;p&gt;我也這麼覺得，不過我想要有個不用管理伺服器的網站，又同時能夠管理課程講義的存取權，好像就沒有這麼直覺了。最後我選擇了 github pages + hugo 來架站。&lt;&#x2F;p&gt;
+&lt;p&gt;其實架設網站的過程並沒有寫起來這麼順利，因為只有我一人在開發，除了網站功能外我也必須同時撰寫網站內容，但因為一開始想在其中放入過多功能，讓網站拖到開學前都沒搞好，差點讓架站之路失敗，最後我決定暫時拋棄網站，全力整理跟撰寫內容，才好不容易在第一堂課前勉強上架。&lt;&#x2F;p&gt;
+&lt;p&gt;實作的過程的確是踩了些雷，也告訴我不該急進。
+最初直接在網路上找別人現成的範本開始改，搞了好幾天之後發現我不太會改他們的程式碼，於是才開始看官方教學重新學習如何寫一個網站主題。花了三四天集中刷完教學影片跟官方文件後，我開始大量載下不同的現有網站主題，一個一個閱讀他們的寫法，最後才東摸西採花了兩個星期寫出自己的網站。
+只不過一當我的網站想支援不同螢幕尺寸(RWD) 時，卻又陷入了另外一個瓶頸：我沒有RWD經驗，僅存時間也不夠學。
+時間壓力下我又回到網路上搜尋範本，但這次因為已經對 Hugo 有不少理解，一天多就做出成果了。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;website.gif&quot; alt=&quot;website-demo&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;shou-fa-zuo-ye&quot;&gt;收發作業&lt;&#x2F;h2&gt;
+&lt;p&gt;這是整個流程中最困難的一部分，難的原因是用 Git 收發作業在實際上有很多種方式，這花了幾個星期的時間去實驗跟分析每個我想到的方法，最後才給出現在的樣子。&lt;&#x2F;p&gt;
+&lt;p&gt;這些方法的優劣是怎樣評估的？&lt;&#x2F;p&gt;
+&lt;p&gt;所有的評斷標準都是回到初衷：&amp;quot;我想給學生最好的修課體驗&amp;quot;，當然最好也能同時解決前面提到的問題。&lt;&#x2F;p&gt;
+&lt;p&gt;我希望從學生的角度來看，盡量讓學生知道最少的額外知識，不管是收發作業，又或是更新作業敘述，都只需要最少動作就可以完成。
+以 Git 開發為例，我們讓同學一個人每次作業都開一個新的 Repository，所以沒事的話預設不用處理分支的問題，而 Repo 的初始化則是使用我們提供的範本。這樣帶來的後果是在一個80人的課程中，6 次作業就會帶來接近 500 個 repo。&lt;&#x2F;p&gt;
+&lt;p&gt;不過我覺得這是相對可以接受的，所以我們的就會使用每學期新開一個組織的方式來進行作業。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;compiler-f19-org.png&quot; alt=&quot;snapshot of github organizatoin&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;我採用 Github Classroom 來進行收發作業，雖說 Github Classroom 功能並不完善，但它也幫我們做掉課程需求 80% 的功能，我們只需要自己寫剩下的 20% 就好。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;classroom.png&quot; alt=&quot;github classroom&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;github_classroom_craw.gif&quot; alt=&quot;github classroom craw&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;zuo-ye-gui-ge-shu-geng-xin-zuo-ye&quot;&gt;作業規格書 &amp;amp; 更新作業&lt;&#x2F;h3&gt;
+&lt;p&gt;我們該如何讓同學拿到作業規格書？而且如何在發現作業敘述不明確時適時更新？&lt;&#x2F;p&gt;
+&lt;p&gt;過往的情況通常是用 Latex 製作成一個 pdf 檔案釋出，當規格有異動時可能會是製作新版本的 pdf 或是在某些公開的平台來公布改動，希望學生可以自己理解，放入自己的作業中。但這樣的問題其實很大，因為不是每個人都會每天重複檢查有沒有最新版的規格，而就算知道有更動後要整合進自己的體系也會有點麻煩。&lt;&#x2F;p&gt;
+&lt;p&gt;很簡單，我們把規格書寫成 Github Repository 中的 &lt;code&gt;README.md&lt;&#x2F;code&gt; 文件，當作業更新時我們就會跑 scrpit 到每一位同學的 repo 下開出新的 Pull Request，由於是使用 git 操作，同學可以直接透過 &lt;code&gt;git diff&lt;&#x2F;code&gt; 看出更動的程式碼或文件部分。&lt;&#x2F;p&gt;
+&lt;p&gt;而為什麼更新是使用開 Pull Request 的方式而不是直接更新同學的 repo，是因為我想把更新規格書的“權力”交給學生，所以不會擾亂到他們的作業流程。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;patch-example.png&quot; alt=&quot;patch to repos&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;一個學生一個 repo，所以每次更新都需要發 80 個 Pull request ，而我們還需要維護這些 Pull request 中說明文件的範本，也需要維護哪些檔案是需要更新的，這就是細節中的細節了，細講的用處不大。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;shou-zuo-ye&quot;&gt;收作業&lt;&#x2F;h3&gt;
+&lt;p&gt;收作業又是另外一個難題了。&lt;&#x2F;p&gt;
+&lt;p&gt;在使用 Git 繳交作業的情況之下，單純只是 clone 學生的 repository 並且翻 git history 來找到學生死線前的繳交的最後版本是沒有用的，因為 git 的提交時間是可以被任意竄改的。&lt;&#x2F;p&gt;
+&lt;p&gt;所以我想到了三種方式，第一個種方式是使用 Github Webhook，主要想法是在每個學生的 git repository 中加上一個 callback，一但同學有 push 行為時就通知我們的伺服器，在收作業時就根據收集來的資料來知道同學的繳交版本跟時間。對此，我在一個月內自學了 node.js，並且使用了 express 去架設了這樣的伺服器。只不過服務寫出來後就被老師打槍了 — 為了交接跟管理方便，教授希望我們架的伺服器越少越好。&lt;&#x2F;p&gt;
+&lt;p&gt;第二種方式是結合 CI&#x2F;CD 工具 — 當學生的 repo 一有動靜，CI&#x2F;CD工具就會自動執行預設的 script 並在系統中留下最後的執行時間，這樣的優點是除了紀錄繳交時間外還可以額外結合自動化批改。唯一問題是在現有較方便的 CI&#x2F;CD 工具下我們的作業一定得採用 &lt;strong&gt;付費方案&lt;&#x2F;strong&gt;，顯然教授不會支援我們這筆經費(至少在他理解到這堂課會變得多棒之前)，而我們也不是哈佛的 CS50 課程，沒辦法像他們一樣直接得到這些廠商的特別贊助，免費拿到這些資源，所以我們要玩就要用窮人的方法來玩 -- 自架 CI&#x2F;CD 服務，不過這個時間成本對我來說有點高，所以就暫時擱置。&lt;&#x2F;p&gt;
+&lt;p&gt;第三種方式是用現有服務來拿到同學在死線瞬間時間的 git commit hash ，也是我們現在用的方式，因為 Github Classroom 支援作業繳交的功能，他們的伺服器會設定在死線到的那瞬間拿取所有人最新的 git commit 紀錄當作繳交版本。 但在我們的情況下要使用這種方式還需要撰寫一些額外的腳本，因為 Github Classroom 缺少公開 API ，而且也不支援遲交功能。針對拿資料的部分，我只好自己撰寫一支爬蟲來處理。針對 Github Classroom 不支援遲交作業的選項，我們想到的方式是做出兩種死線，我們系統上設定的死線是作業公告的死線結束一星期後，在系統死線到的時候再配合 Github 的公開 API 拿取同學最後一次 push 的伺服器時間，藉此判定同學的真正繳交時間。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;event_times.gif&quot; alt=&quot;script event times&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;ping-tai-xuan-ze&quot;&gt;平台選擇&lt;&#x2F;h2&gt;
+&lt;p&gt;在第一個學期中選擇 Github 是因為有 Github Classroom 能夠輔助我們做事情，在時間壓力之下不太想重複造輪子。
+Github 的第一個好處是能見度高，有較多第三方服務支援，其次是伺服器的吞吐量大，不像學校一樣會在期末考週或是午夜死線因流量過大而當機。
+不過小問題是客製化程度好像略低，如果要考慮 CI&#x2F;CD 整合的話我會比較考慮使用 Gitlab。
+未來在整合的時候會考慮寫一個 Adaptor，然後底層可以自由接 github 或是 gitlab 來實作，讓課程能自由在不同平台之間選擇。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;tao-lun-qu-jia-she&quot;&gt;討論區架設&lt;&#x2F;h2&gt;
+&lt;p&gt;課程的討論區其實不難架設，我的方法是在組織之下開一個專門討論用的 repo ，請同學有問題就開 issue ，我們會透過不同的 tag 來表示問題的資料與狀況。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;compiler-discussion.png&quot; alt=&quot;dicussion room&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;si-you-zi-liao-nei-rong&quot;&gt;私有資料內容&lt;&#x2F;h2&gt;
+&lt;p&gt;在課程的內容管理部分，我就是開啟一個只有課程組織內的成員才有存取權限的 repo。如此一來我們的靜態網站就可以把身份認證的問題丟給 github 處理。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;compiler-private.png&quot; alt=&quot;private contents&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zi-dong-hua-pi-gai&quot;&gt;自動化批改&lt;&#x2F;h2&gt;
+&lt;p&gt;今年最不一樣的事情是，我們在每一次作業都加入了自動化批改流程。&lt;&#x2F;p&gt;
+&lt;p&gt;聽起來很簡單，但所謂的自動化批改就是使用 diff 來比對答案相不相同，只不過如果想要針對編譯器的輸出來進行比對，就代表編譯器的規格必須要定義的完全沒有歧異，再加上今年的課程改革幾乎把作業規格打掉重寫，只能說益揚跟宇勝兩人實在是厲害了，用兩個人的力量就做出過去課程助教定義不出來的細節，讓我不用在這方面多做操心，專心開發課程工具。&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;hw-spec.png&quot; alt=&quot;exmaple of sepcification&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;.&#x2F;auto-test.png&quot; alt=&quot;auto testing&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;jiao-ben-gong-ju-kai-fa&quot;&gt;腳本工具開發&lt;&#x2F;h2&gt;
+&lt;p&gt;我們的平台之所以會選擇，github classroom + github ，是因為他們的服務已經替我們做掉了 80% 的事情。接下來只要做額外 20% 的事情就好，而這些 script 就是剩下的 20%。
+在思考我們的作業需求之後，我們參考 Github API 配合 Python 來自動化掉一些流程。
+比如說:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;邀請學生進入 github organization&lt;&#x2F;li&gt;
+&lt;li&gt;讓所有助教擁有學生作業 repo 的存取權&lt;&#x2F;li&gt;
+&lt;li&gt;更新作業規格，釋出範例 code （簡稱打 patch）&lt;&#x2F;li&gt;
+&lt;li&gt;擷取同學的作業繳交狀況 + 產生遲交報告&lt;&#x2F;li&gt;
+&lt;li&gt;公布成績&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;大部分的作業就是藉由 Github API v3 去實踐，我曾經考慮改使用 Github GraphQL API v4  來實踐，只不過開發當初在社群上發現有人反映 Github 的 GraphQL API 有些許問題，我就先改用這個了，或許未來能夠藉著重新整理程式碼的時候慢慢搬遷過去。&lt;&#x2F;p&gt;
+&lt;p&gt;在這之中比較有趣的腳本我認為是公布成績。&lt;&#x2F;p&gt;
+&lt;p&gt;考量到學生的隱私權，我把成績透過開 issue 到同學個別的作業 repo 之下來個別公布，每一篇 issue 會包含學生的總成績，以及像是一些自動化批改的輸出資訊，來讓同學知道自己哪些部分沒有做好。&lt;&#x2F;p&gt;
+&lt;p&gt;為了方便管理資料，我們把所有學生的成績放在同一張 google sheet 下面，公布成績的腳本會透過google sheet API 來拿取必要資訊，但也跟前面說的一樣，一些非成績的資訊我們會放在一個助教共同管理的 github repo 之下，透過範本的方式來填入每一位同學的詳細資訊。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;xian-kuang&quot;&gt;現況&lt;&#x2F;h2&gt;
+&lt;p&gt;總之，第一個學期是跑過了，這學期常常有一邊搭火車一邊在前面舖鐵軌的感覺，不少夜晚跟週末都是在趕工下度過。
+且在不少同學都能正確完成規格要求的情況下，大致上證明我們的規格書是可行的，只不過透過每次作業同學的疑問我們都可以再找出一些可以細修的方向。&lt;&#x2F;p&gt;
+&lt;p&gt;主要的問題或許是我們做出的難度過高，即便大部分作業立意良善，努力透過教學文件來降低難度，卻因為過多的實踐細節以及一開始的作業留白讓同學不知道該如何下手。常常可以看見同學分享從理解到寫完大概是 30+ 小時的過程。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wei-lai-gai-shan-fang-xiang&quot;&gt;未來改善方向&lt;&#x2F;h2&gt;
+&lt;p&gt;學期結束之後，我想我們會去重看每次同學中給出的回饋來決定未來修改方向。不僅是規格細節，整個學期每份作業的難度也都要進行修改。&lt;&#x2F;p&gt;
+&lt;p&gt;或許有些同學會認為作業過難，但其實我有幾點比較有趣的認知：我認為高作業難度是可以而且該被鼓勵的。&lt;&#x2F;p&gt;
+&lt;p&gt;為什麼呢？&lt;&#x2F;p&gt;
+&lt;p&gt;這就是在美國的修課感想了。今年年初到美國之後才發現 UIUC 並不推薦一學期修超過 3 門 CS 的必修課程，原因是每個必修的作業量都很重，這跟我在交大的經驗完全不同，過去身旁總充斥著一學期五主科，七主科的同學們，可以直接說是因為課程負擔過低，不少課程都是左摸又摸，作業簡簡單單就能完成，一學期之後什麼都沒學到。大部分的課程都是如此，也讓我四年下來漸漸從戲稱交大為”學店“轉成為開始如此認同。&lt;&#x2F;p&gt;
+&lt;p&gt;我主張，&lt;strong&gt;作業應該要難&lt;&#x2F;strong&gt;，但不能只是一股腦的難，要難的有門路。
+難不該是問題，而是要讓肯花心思，沒底子的同學能靠自己的力量爬上來。
+課程應該盡力包含所有作業會使用到的東西，該給的教學要給，改放的提示也要放。&lt;&#x2F;p&gt;
+&lt;p&gt;「難的合理」是這學期除了修課體驗之外的另一大目標，但卻也是因為這個目標的存在才造成不少問題。
+30+ 小時的寫作業時間，是這門課的修課生跟授課者都該有的共識，但在交大修課的學生基於過去經驗沒辦法領會到這件事情，不少人在修這門課的同時又嘗試了更多重課，搞得自己生不如死。
+未來在調整難度的同時，我也希望能夠讓同學具有這樣的共識才能進來修課。&lt;&#x2F;p&gt;
+&lt;p&gt;在未來作業中，我會嘗試把自動化批改跟 CI&#x2F;CD 工具結合，以及給出作業環境所需的 docker image。讓同學能夠在本地端就能取用到相同的資料。&lt;&#x2F;p&gt;
+&lt;p&gt;最後大概就是重構我寫的腳本，把他們整理成一個工具集並撰寫足夠的文件，當整理完畢後可能會開源出來，為社群貢獻一分心力吧。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;zong-jie-qi-wang&quot;&gt;總結 &amp;amp; 期望&lt;&#x2F;h2&gt;
+&lt;p&gt;回想高中忙社團的時候，我總是付出了一堆時間跟努力，旁人卻常常看不見自己的付出，度過那段歲月後我學到的是除了自己要努力之外，也要努力在重要、有影響力的方向上。&lt;&#x2F;p&gt;
+&lt;p&gt;這門課一開始的想法很簡單，只不過實驗上可行與能搬上檯面兩者真的需要不小的落差需要去彌補。做工程，或是做產品的人，都需要這種打磨的心態。&lt;&#x2F;p&gt;
+&lt;p&gt;跟羿伶聊天的時候曾經提過，我認為推動社會進步的力量不是只有利益關係，對於好與正確的堅持也是重要之事。
+希望在我的影響之下，我所待過的交大資工往更專業，有理想的方向移動一些。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;yi-xie-lian-jie&quot;&gt;一些連結&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;compiler-f19.github.io&#x2F;&quot;&gt;課程網站 - https:&#x2F;&#x2F;compiler-f19.github.io&#x2F;&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;compiler-f19&#x2F;Discussion&quot;&gt;課程討論區 - https:&#x2F;&#x2F;github.com&#x2F;compiler-f19&#x2F;Discussion&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title> ros+python3設定</title>
+		<published>2018-05-27T00:00:00+00:00</published>
+		<updated>2018-05-27T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/python-ros3-setting/" type="text/html"/>
+		<id>https://ianchen.tw/posts/python-ros3-setting/</id>
+		<content type="html">&lt;p&gt;Ubuntu 16.04 上面的 ROS lunar 預設使用 &lt;code&gt;python2.7&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;&lt;h2 id=&quot;an-zhuang-pyenv&quot;&gt;安裝pyenv&lt;&#x2F;h2&gt;
+&lt;p&gt;使用pyenv來控管系統上的不同 python 版本是目前 python 社群的發展趨勢&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;pyenv&#x2F;pyenv&quot;&gt;pyenv安裝教學&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;安裝 python3.6.5&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-lang&quot; data-lang=&quot;lang&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pyenv install 3.6.5
+pyenv global 3.6.5
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;geng-gai-yu-she-de-shellbian-shu-pythonpath&quot;&gt;更改預設的shell變數 : $PYTHONPATH&lt;&#x2F;h2&gt;
+&lt;p&gt;ros主要藉由 &lt;code&gt;$PYTHONPATH&lt;&#x2F;code&gt; 變數來獲得系統上有關python的資訊
+把下面這行放到 &lt;code&gt;~&#x2F;.bashrc&lt;&#x2F;code&gt; 的檔案尾端&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;export PYTHONPATH=$(pyenv root)&#x2F;shims:$PYTHONPATH
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;更改之後會讓 ros 預設先讀取目前設定的 python 版本
+如果只做完這步驟就使用 catkin_make 來編譯的話八成會跳出找不到套件的問題&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;Traceback &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;most recent call last&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;):
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;File &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;opt&#x2F;ros&#x2F;lunar&#x2F;share&#x2F;gencpp&#x2F;cmake&#x2F;..&#x2F;..&#x2F;..&#x2F;lib&#x2F;gencpp&#x2F;gen_cpp.py&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, line &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;41&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;in &amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;module&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;genmsg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;template_tools
+  File &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;opt&#x2F;ros&#x2F;lunar&#x2F;lib&#x2F;python2.7&#x2F;dist-packages&#x2F;genmsg&#x2F;template_tools.py&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, line &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;39&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;in &amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;module&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;em
+ModuleNotFoundError&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;No module named &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;em&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;
+
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;shou-dong-an-zhuang-xiang-yi-xing-tao-jian&quot;&gt;手動安裝相依性套件&lt;&#x2F;h2&gt;
+&lt;p&gt;會需要做到這步驟目前猜測是 ubuntu 的套件 &lt;code&gt;python-catkin-pkg&lt;&#x2F;code&gt; 跟 &lt;code&gt;pyenv&lt;&#x2F;code&gt; 兩者之間的整合性並不太好。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pyenv global 3.6.5
+pip install -U rosdep rosinstall_generator wstool rosinstall six vcstools empy
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>自己編譯vim</title>
+		<published>2018-01-29T00:00:00+00:00</published>
+		<updated>2018-01-29T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/compile-vim-yourself/" type="text/html"/>
+		<id>https://ianchen.tw/posts/compile-vim-yourself/</id>
+		<content type="html">&lt;h2 id=&quot;qian-yan&quot;&gt;前言&lt;&#x2F;h2&gt;
+&lt;p&gt;在NCTU+也待一段時間了，開發主機上的vim不知道為什麼總是在讀取自己的vimrc時會有錯誤訊息，無法使用，還有我用的插件(Neocomplete)需要vim有&lt;code&gt;lua&lt;&#x2F;code&gt; support，而系統上的沒有，我必須找個辦法讓vim支援lua。
+編譯vim其實不是什麼困難的事情，但對於沒有太多linux系統概念的新手了來說，觀念上還是存在一些落差需要彌補。所以這篇文章的目標是寫到讓當初的自己看得懂。並能讓讀者能夠知道自己在做什麼。還有如果需要更多編譯參數的話也知道該怎麼設定。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wei-shi-mo-yao-zi-xing-bian-yi-vim&quot;&gt;為什麼要自行編譯vim&lt;&#x2F;h2&gt;
+&lt;p&gt;這個小標題應該可以改成:「為什麼要自行編譯xxx?」，而xxx泛指所有類Unix上的套件服務。我大概想了幾個可能的情況:&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;系統的vim不支援想要的功能，但又沒有root權限，只能讀寫自己的家目錄QQ&lt;&#x2F;li&gt;
+&lt;li&gt;系統套件管理程式支援的選項太少，例: Ubuntu 上的 &lt;code&gt;apt-get&lt;&#x2F;code&gt;無法指定套件安裝的目錄，以及更細節的編譯內容(讓vim 有 lua support)。
+(OSX,Arch linux的使用者應該就沒有這個問題)&lt;&#x2F;li&gt;
+&lt;li&gt;想在不要覆蓋系統版本vim的情況下用到新版的Vim。&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;我的需求大概就是三種情況下的總和。說完之後就快開始吧&amp;lt;3&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;0-huan-jing-shuo-ming&quot;&gt;0. 環境說明&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;系統 Ubuntu 12.04.5 LTS&lt;&#x2F;li&gt;
+&lt;li&gt;我的家目錄: &lt;code&gt;&#x2F;home&#x2F;ianre657&lt;&#x2F;code&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;之後如果寫到 &lt;code&gt;&#x2F;home&#x2F;ianre657&lt;&#x2F;code&gt;的話，要自行代換成你的家目錄。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;1-jian-cha-vim-zi-xun&quot;&gt;1. 檢查 vim 資訊&lt;&#x2F;h2&gt;
+&lt;p&gt;在Ubuntu上安裝Vim插件NeoComplete的時候，作者寫到vim 需要支援lua。
+所以就先使用&lt;code&gt;vim --verison&lt;&#x2F;code&gt;指令檢查一下目前vim的詳細資料。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;$ vim --version
+VIM - Vi IMproved 8.0 (2016 Sep 12, compiled Jan 27 2018 22:07:32)
+引入修正: 1-1432
+編譯者:ianre657@PLUS
+超強版本 使用 GTK2 圖型界面。
+ 目前可使用(+)與不可使用(-)的模組列表:
++acl               +farsi             +mouse_sgr         -tag_any_white
++arabic            +file_in_path      -mouse_sysmouse    -tcl
++autocmd           +find_in_path      +mouse_urxvt       +termguicolors
+-autoservername    +float             +mouse_xterm       +terminal
++balloon_eval      +folding           +multi_byte        +terminfo
++balloon_eval_term -footer            +multi_lang        +termresponse
++browse            +fork()            -mzscheme          +textobjects
+++builtin_terms    +gettext           +netbeans_intg     +timers
++byte_offset       -hangul_input      +num64             +title
++channel           +iconv             +packages          +toolbar
++cindent           +insert_expand     +path_extra        +user_commands
++clientserver      +job               -perl              +vertsplit
++clipboard         +jumplist          +persistent_undo   +virtualedit
++cmdline_compl     +keymap            +postscript        +visual
++cmdline_hist      +lambda            +printer           +visualextra
++cmdline_info      +langmap           +profile           +viminfo
++comments          +libcall           +python            +vreplace
++conceal           +linebreak         -python3           +wildignore
++cryptv            +lispindent        +quickfix          +wildmenu
++cscope            +listcmds          +reltime           +windows
++cursorbind        +localmap          +rightleft         +writebackup
++cursorshape       +lua               +ruby              +X11
++dialog_con_gui    +menu              +scrollbind        -xfontset
++diff              +mksession         +signs             +xim
++digraphs          +modify_fname      +smartindent       +xpm
++dnd               +mouse             +startuptime       +xsmp_interact
+-ebcdic            +mouseshape        +statusline        +xterm_clipboard
++emacs_tags        +mouse_dec         -sun_workshop      -xterm_save
++eval              -mouse_gpm         +syntax
++ex_extra          -mouse_jsbterm     +tag_binary
++extra_search      +mouse_netterm     +tag_old_static
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在選項中的 +lua 代表著目前的vim是支援lua語言的。
+雖然說我的已經支援了，但為了這篇文章還是重新編譯一次。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;2-xia-zai-vimzhuan-an-yuan-shi-ma&quot;&gt;2. 下載Vim專案原始碼&lt;&#x2F;h2&gt;
+&lt;p&gt;Vim是開源軟體，所有的程式碼都放在網路上供人觀看。照理來說只要拿到原始程式碼之後就一定能產生出一個完全客製化的Vim程式。
+而git 是一個版本管理程式，附帶的&lt;code&gt;clone&lt;&#x2F;code&gt;參數會從後面的網址中載入網路上對應的另一個專案。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;$ git clone https:&#x2F;&#x2F;github.com&#x2F;vim&#x2F;vim.git
+$ cd vim
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;3-she-ding-makefi-le-bian-yi-can-shu&quot;&gt;3. 設定 Makefile 編譯參數&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;gnu make&lt;&#x2F;code&gt;是一個在Linux存在很久，十分穩定的專案，最常見的用途是自動化編譯。
+在一個大型專案中，程式為了方便管理一定會將原始碼依照功能拆分成不同檔案來編寫。&lt;code&gt;make&lt;&#x2F;code&gt;程式會透過 &lt;code&gt;Makefile&lt;&#x2F;code&gt;檔案中的設定來決定目標檔案的相關性以及編譯的順序。&lt;&#x2F;p&gt;
+&lt;p&gt;在 vim資料夾中還有另外一個很重要的程式: &lt;code&gt;configure&lt;&#x2F;code&gt;，他的目的是用來輔助設定。我們透過&lt;code&gt;configure&lt;&#x2F;code&gt;程式來修改&lt;code&gt;Makefile&lt;&#x2F;code&gt;的編譯參數，讓編譯完的程式有更多的功能。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;$ .&#x2F;configure --with-features=huge \
+            --enable-multibyte \
+            --enable-luainterp=yes \
+            --enable-fail-if-missing \
+            --prefix=&#x2F;home&#x2F;ianre657
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;記得修改&lt;code&gt;--prefix=&#x2F;home&#x2F;ianre657&lt;&#x2F;code&gt; 成你想要安裝的目錄名稱。
+上面的這些參數其實都在&#x2F;vim&#x2F;src&#x2F;Makefile的註解中有說明。(連 &lt;code&gt;configure&lt;&#x2F;code&gt; 程式的作用都有寫到)，所以如果需要更多參數的話可以往Makefile裡面尋找。
+&lt;code&gt;--enable-fail-if-missing &lt;&#x2F;code&gt;參數最好加上去，這樣一來如果中途設定有出錯時程式會自動停下來，比較好debug。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;3-5-an-zhuang-lua-mei-you-cai-xu-yao-zhuang&quot;&gt;3.5 安裝lua (沒有才需要裝)&lt;&#x2F;h2&gt;
+&lt;p&gt;要讓vim支援lua之前，電腦上至少也要有lua語言。
+要確認一下的話可以使用&lt;code&gt;lua -v&lt;&#x2F;code&gt;來查看版本資訊&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;$ lua -v
+Lua 5.2.4  Copyright (C) 1994-2015 Lua.org, PUC-Rio
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;如果有跳出以上的資訊就可以直接跳&lt;a href=&quot;https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;compile-vim-yourself&#x2F;4-%E7%B7%A8%E8%AD%AF&quot;&gt;第四步&lt;&#x2F;a&gt;了。&lt;&#x2F;p&gt;
+&lt;p&gt;如果系統沒有的話就又要自己在家目錄在裝一個可執行的lua了QQ。
+(因為我沒有root權限無法更新)
+&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;www.lua.org&#x2F;download.html&quot;&gt;Lua官方資料&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;curl&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;R&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;O&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; http:&#x2F;&#x2F;www.lua.org&#x2F;ftp&#x2F;lua-5.3.4.tar.gz
+tar zxf lua-5.3.4.tar.gz
+cd lua-5.3.4
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這時後要注意，如果直接使用 &lt;code&gt;make&lt;&#x2F;code&gt; 編譯的話預設會裝在系統資料夾，所以要修改一下Makefile，把INSTALL_TOP修改成自己的家目錄。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Makefile&quot; data-lang=&quot;Makefile&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;INSTALL_TOP&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;home&#x2F;ianre657
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;(lua的專案資料夾跟vim不同，沒有configure這個輔助設定的程式，要自己去Makefile下面更改參數)
+用完之後下一下make linux test 就可以了 (linux 會依據不同系統有不同的參數，要自己查一下)&lt;&#x2F;p&gt;
+&lt;p&gt;試看看是否裝成功。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;$ lua&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;v&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;
+Lua 5.2.4  Copyright (C&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;1994-2015 Lua.org, PUC-Rio
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在lua成功安裝之後，到vim的目錄下重新跑一下 &lt;code&gt;configure&lt;&#x2F;code&gt; 程式，不過這次要修改一下 lua的目錄:
+新增參數:&lt;code&gt;--with-lua-prefix=&#x2F;home&#x2F;ianre657&lt;&#x2F;code&gt;，其他的參數都跟之前一樣。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;.&#x2F;configure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;with-features&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;huge &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+            --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;enable-multibyte &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+            --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;enable-luainterp&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;yes &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+            --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;enable-fail-if-missing &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+            --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;with-lua-prefix&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;&#x2F;home&#x2F;ianre657 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+            --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;prefix&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;&#x2F;home&#x2F;ianre657
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;4-bian-yi&quot;&gt;4. 編譯&lt;&#x2F;h2&gt;
+&lt;p&gt;到vim的資料夾下，先下&lt;code&gt;make distclean&lt;&#x2F;code&gt;(清除之前的檔案)
+再用&lt;code&gt;make install clean&lt;&#x2F;code&gt;安裝程式並刪除暫存檔。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;make distclean
+make install clean
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;安裝完之後用以下指令看看是否成功了&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;cd &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ec5f67;&quot;&gt;~
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;.&#x2F;bin&#x2F;vim&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;version
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;5-xiu-gai-shi-yong-zhe-pathbian-shu&quot;&gt;5. 修改使用者&lt;code&gt;$PATH&lt;&#x2F;code&gt;變數&lt;&#x2F;h2&gt;
+&lt;p&gt;PATH環境變數決定我們打下指令時系統尋找程式的路徑順序。使用 &lt;code&gt;echo $PATH&lt;&#x2F;code&gt;來查看目前的PATH變數。變數中用&lt;code&gt;:&lt;&#x2F;code&gt;來作為不同路徑的分隔。
+以 &lt;code&gt;&#x2F;usr&#x2F;local&#x2F;sbin:&#x2F;usr&#x2F;local&#x2F;bin&lt;&#x2F;code&gt;為例，在下&lt;code&gt;vim&lt;&#x2F;code&gt;時，系統會先查看&lt;code&gt;&#x2F;usr&#x2F;local&#x2F;sbin&lt;&#x2F;code&gt;有沒有叫做vim的程式，如果沒有的話之後才會繼續&lt;code&gt;&#x2F;usr&#x2F;local&#x2F;bin&lt;&#x2F;code&gt;資料夾。&lt;&#x2F;p&gt;
+&lt;p&gt;我們的目標是讓系統預設先查看我們自己家目錄下的 &lt;code&gt;bin&lt;&#x2F;code&gt;資料夾之後，才會查看系統預設的資料夾，這樣就可以達到覆蓋系統vim 的效果了。
+把以下這行到家目錄下的 &lt;code&gt;~&#x2F;.bashrc&lt;&#x2F;code&gt;或是 &lt;code&gt;~&#x2F;.bash_profile&lt;&#x2F;code&gt;。(看你的系統)
+&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# .bash_profile
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;export &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;PATH&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;quot;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;bin:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;PATH&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&amp;quot;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;~&#x2F;.bash_profile&lt;&#x2F;code&gt;是每次登入是bash shell會預設載入的腳本檔案。這樣做的話就可以在每次使用時都使用自己編譯的程式了。
+而這裡看到的${HOME} 變數在系統上會被翻譯為當前使用者的家目錄(home directory)拉&lt;&#x2F;p&gt;
+&lt;p&gt;用以下的語言來測試一下是否真的成功了，成功的話就收工拉&amp;lt;3&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-sh&quot; data-lang=&quot;sh&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;source &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ec5f67;&quot;&gt;~&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;&#x2F;.bash_profile
+vim&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;version
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;</content>
+	</entry>
+</feed>

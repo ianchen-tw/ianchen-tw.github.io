@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+	<title>IanChen - docker</title>
+	<link href="https://ianchen.tw/tags/docker/atom.xml" rel="self" type="application/atom+xml"/>
+  <link href="https://ianchen.tw"/>
+	<generator uri="https://www.getzola.org/">Zola</generator>
+	<updated>2020-02-15T00:00:00+00:00</updated>
+	<id>https://ianchen.tw/tags/docker/atom.xml</id>
+	<entry xml:lang="en">
+		<title>使用 Docker 設置開發環境</title>
+		<published>2020-02-15T00:00:00+00:00</published>
+		<updated>2020-02-15T00:00:00+00:00</updated>
+		<link href="https://ianchen.tw/posts/develop-with-docker/" type="text/html"/>
+		<id>https://ianchen.tw/posts/develop-with-docker/</id>
+		<content type="html">&lt;p&gt;這套流程最初是為了交大資工游逸平老師的編譯器課程作業所設計，目的是讓對 docker 完全沒有經驗的大學部同學也能快速使用我們的作業環境，並且作為未來作業全自動化批改的重要里程碑。&lt;&#x2F;p&gt;
+&lt;span id=&quot;continue-reading&quot;&gt;&lt;&#x2F;span&gt;
+&lt;p&gt;這門課程作業正在被助教群快速翻新來跟上時代中。如果你對課程有興趣且你是交大學生，可以來修看看，體驗看看這門我有自信成為交大資工教材最完整跟紮實的課程(助教自己說)，並用你的人頭數來實際增加我的助教薪水。(拜託)&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;biao-zhun-gong-zuo-liu-cheng&quot;&gt;標準工作流程&lt;&#x2F;h2&gt;
+&lt;ol&gt;
+&lt;li&gt;進入專案目錄&lt;&#x2F;li&gt;
+&lt;li&gt;執行  &lt;code&gt;activate_docker.sh&lt;&#x2F;code&gt; (實際上就是呼叫 activate_docker.py)&lt;&#x2F;li&gt;
+&lt;li&gt;直接開始開發&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;h3 id=&quot;te-xing-jie-shao&quot;&gt;特性介紹&lt;&#x2F;h3&gt;
+&lt;p&gt;這個工作流程就是模仿一般有虛擬話開發環境的使用模式，但實際上是直接進入一個乾淨的 docker 系統，我們會直接把呼叫 &lt;code&gt;activate_docker.sh&lt;&#x2F;code&gt; 時的工作目錄掛載到 docker 中的家目錄之下，並且同時完成使用者身份對應，讓你避免掉奇怪的檔案權限問題處理。&lt;&#x2F;p&gt;
+&lt;p&gt;這裡的所有檔案都放在 &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;ianre657&#x2F;setup-develop-env-with-docker&quot;&gt;Github&lt;&#x2F;a&gt; 上，你可以從上面拿到我的程式碼。&lt;&#x2F;p&gt;
+&lt;p&gt;接下來我會解釋這個東西的設計方法，並且如果你想把這份程式碼當範本的話，你該怎麼做&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;makefile&quot;&gt;Makefile&lt;&#x2F;h2&gt;
+&lt;p&gt;第一份要看的資訊是 Makefile ，所有可以客製化的變數都在 Makefile 中，比如說進入 container（容器）中的使用者&#x2F;群組名稱、主機名稱等，透過這個 Makefile 來集中管理並在下指令時傳入。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Makefile&quot; data-lang=&quot;Makefile&quot;&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;all&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; build
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;.PHONY&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; build activate
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;# Do not named user and group the same, this would cause error in entrypoint.sh
+#	because we create the group before user exist which allowing name-crash in useradd command
+CONTAINER_USERNAME = ian
+CONTAINER_GROUPNAME = iang
+CONTAINER_HOSTNAME = dev-env
+IMAGE_NAME ?= my-dev-env
+
+HOMEDIR = &#x2F;home&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_USERNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;build&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; Dockerfile
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;	docker build &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		--build-arg CONTAINER_USERNAME=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_USERNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		--build-arg CONTAINER_GROUPNAME=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_GROUPNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		--build-arg CONTAINER_HOMEDIR=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;		-t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;$(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;IMAGE_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; .
+
+activate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:
+	&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;python3 activate_docker.py &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--username &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_USERNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--homedir &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--imagename &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;IMAGE_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;\
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;		--hostname &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;CONTAINER_HOSTNAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在知道 Makfile 的用處之後，就可以讀一下實作功能的檔案們，
+第一位: dockerfile。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;dockerfile-entrypoint-sh&quot;&gt;dockerfile &amp;amp;&amp;amp; entrypoint.sh&lt;&#x2F;h2&gt;
+&lt;p&gt;以製作 python3.8 的環境當作範例，首先你會需要一份可以動的 dockerfile&lt;&#x2F;p&gt;
+&lt;p&gt;可以注意一下這個檔案除了安裝 Python 外有哪些不一樣的地方（還有 Makfile 傳入的變數）&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Dockerfile&quot; data-lang=&quot;Dockerfile&quot;&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;FROM&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; ubuntu:18.04
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;PYTHON3_VERSION=3.8
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;RUN &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;apt-get update \
+  &amp;amp;&amp;amp; apt-get install gosu \
+  &amp;amp;&amp;amp; apt-get install -y software-properties-common &amp;amp;&amp;amp; add-apt-repository -y ppa:deadsnakes&#x2F;ppa \
+      &amp;amp;&amp;amp; apt-get install -y python${PYTHON3_VERSION} \
+      &amp;amp;&amp;amp; ln -sfn &#x2F;usr&#x2F;bin&#x2F;python${PYTHON3_VERSION} &#x2F;usr&#x2F;bin&#x2F;python3 \
+      &amp;amp;&amp;amp; ln -sfn &#x2F;usr&#x2F;bin&#x2F;python${PYTHON3_VERSION} &#x2F;usr&#x2F;bin&#x2F;python
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;RUN &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;apt-get install -y gosu make
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CONTAINER_USERNAME=dummy
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CONTAINER_GROUPNAME=dummyg
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ARG &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CONTAINER_HOMEDIR=&#x2F;home&#x2F;dummy
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USERNAME_PASSIN ${CONTAINER_USERNAME}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_GROUPNAME_PASSIN ${CONTAINER_GROUPNAME}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_HOMEDIR_PASSIN ${CONTAINER_HOMEDIR}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# indicate we are inside docker
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;ENV &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;STATUS_DOCKER_ACTIVATED 1
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;COPY&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt; entrypoint.sh &#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;RUN &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;chmod +x &#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;CMD &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;bin&#x2F;bash&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;ENTRYPOINT &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這份 dockerfile 最重要的是最後兩行指令 :&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Dockerfile&quot; data-lang=&quot;Dockerfile&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;CMD [&amp;quot;&#x2F;bin&#x2F;bash&amp;quot;]
+ENTRYPOINT [&amp;quot;&#x2F;usr&#x2F;local&#x2F;bin&#x2F;entrypoint.sh&amp;quot;]
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這裏一次用到了  &lt;code&gt;CMD&lt;&#x2F;code&gt; 跟 &lt;code&gt;ENTRYPOINT&lt;&#x2F;code&gt;，在同時用到這兩個指令時會在 Container( 容器 ) 啟動時強制執行 &lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt; 後才會執行預設的 CMD 指令&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt; 的存在是為了動態將使用者在 host system (原本的系統環境) 跟 container 中檔案系統所顯示的使用者身份關聯起來。&lt;&#x2F;p&gt;
+&lt;p&gt;簡單來說，如果使用者在原本系統中的 uid (user id)跟 pimary gid (group id) 是1008 跟 1009，那他進入這份  &lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt; 的docker container 之後所創建的所有檔案的所有權仍是 1008 跟 1009，當使用者離開環境之後看見所有在 container 下創建的檔案所有權都會是自己。&lt;&#x2F;p&gt;
+&lt;p&gt;會這樣做的背後原因很簡單，就是在 contianer image 中系統無法被修改的情況下追求最大的使用彈性，讓各式各樣的人都能在自己的系統中使用相同的 docker image 作為開發環境（原本的目的就是課程使用）。 所以如果想要建立的 docker image 不是屬於這種情況的話可以參考 &lt;a href=&quot;https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;&quot;&gt;Handling-permissions-with-docker-volumes&lt;&#x2F;a&gt; 中所提到的其他方式。&lt;&#x2F;p&gt;
+&lt;p&gt;除了 entrypoint 本身之外， &lt;code&gt;apt-get install gosu&lt;&#x2F;code&gt; 也是與他一起連動的，這是為了解決 Linux 的 su 指令無法正確達成 container 下的 signal 處理需求。&lt;&#x2F;p&gt;
+&lt;p&gt;在介紹完這個 dockerfile 之後 就要介紹一下輔助我們進入環境的腳本文件: &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;activate-docker-py&quot;&gt;activate_docker.py&lt;&#x2F;h2&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Python&quot; data-lang=&quot;Python&quot;&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;sys
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;subprocess
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pathlib
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;argparse
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;from &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;pathlib &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;Path
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;import &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;os
+
+parser &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;argparse&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;ArgumentParser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;description&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;Activate homework environment for compiler-s20&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-u&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--username&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;student&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;,)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--hostname&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;compiler-s20&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--homedir&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;home&#x2F;student&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;add_argument&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;( &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-i&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--imagename&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;compiler-s20-env&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parser&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parse_args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USER_NAME &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;username
+DOCKER_HOST_NAME &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;hostname
+DOCKER_IMG_NAME &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;imagename
+dk_home &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;args&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;homedir
+
+dirpath &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;path&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;dirname&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;path&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;abspath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;__file__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;))
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;def &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;():
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;STATUS_DOCKER_ACTIVATED&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot; in &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;environ&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;print&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;You are already inside our docker environment, see?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;)
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;sys&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;exit&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;)
+
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;cwd &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getcwd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;bash_his &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;Path&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;dirpath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;.history&#x2F;docker_bash_history&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;)
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;bash_his&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;parent&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;mkdir&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;exist_ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;True&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;)
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;bash_his&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;touch&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;exist_ok&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;True&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;)
+
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;docker_options &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;= [
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;docker&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;run&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--rm&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-it&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;--hostname&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_HOST_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;LOCAL_USER_ID=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getuid&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()}&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;LOCAL_USER_GID=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getgid&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()}&amp;#39;,
+      &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-v&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;getcwd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;:&#x2F;home&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&amp;#39;,
+
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# bash history file
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;-v&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;f&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;dirpath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;.history&#x2F;docker_bash_history:&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;dk_home&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;&#x2F;.bash_history&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;#39;,
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_IMG_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;,
+   ]
+   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;os&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;system&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&amp;#39; &amp;#39;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;join&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;docker_options&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;))
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;__name__ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;== &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;__main__&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;:
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;()
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;.&#x2F;activate_docker.py&lt;&#x2F;code&gt; 的主要用處有幾個:
++ 使用 docker volume 將當前目錄對應到使用者家目錄下
++ 將使用者身份對應到系統內部
++ 保存必要的指令輸入紀錄，讓你在進出 docker 環境時還能快速搜尋過去歷史
++ 避免重複呼叫 &lt;code&gt;.&#x2F;activate_docker.py&lt;&#x2F;code&gt; 來遞迴進入 docker 環境&lt;&#x2F;p&gt;
+&lt;p&gt;大部分的程式碼其實並不難，但你可能會比較在意我們是如何判斷使用者已經進入環境了的。也就是 &lt;code&gt;STATUS_DOCKER_ACTIVATED&lt;&#x2F;code&gt; 這個變數到底是從哪裡冒出來的呢？&lt;&#x2F;p&gt;
+&lt;p&gt;回頭看看 Dockerfile 就能找到了！&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Dockerfile&quot; data-lang=&quot;Dockerfile&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# indicate we are inside docker
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;ENV STATUS_DOCKER_ACTIVATED 1
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;我們使用 ENV 指令在系統環境中直接設置一個環境變數，這樣做的目的是避免對 docker 不熟悉的學生誤觸指令，能省去新手學生掉入不知名 bug 的時間。&lt;&#x2F;p&gt;
+&lt;p&gt;好的，接下來就是 docker image 的進入點 : &lt;code&gt;entrypoint.sh&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;entrypoint-sh&quot;&gt;entrypoint.sh&lt;&#x2F;h2&gt;
+&lt;p&gt;這份的原始碼大部分是從 denibertovic 的&lt;a href=&quot;https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;&quot;&gt;文章&lt;&#x2F;a&gt; 中所修改而成。
+我會大概介紹一下他在做什麼，還有我做了哪些修改。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;#!&#x2F;bin&#x2F;bash
+
+# reference : https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;LOCAL_USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;9001&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_GID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;LOCAL_USER_GID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;:-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#99c794;&quot;&gt;9001&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=`&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;echo &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_USERNAME_PASSIN&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;`
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;GROUP_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=`&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;echo &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_GROUPNAME_PASSIN&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;`
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;=`&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;echo &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;DOCKER_HOMEDIR_PASSIN&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;`
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;groupadd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;g &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_GID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} ${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;GROUP_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;[[ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;d &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;]]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;then
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5f6364;&quot;&gt;# supress home already exist warning
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;useradd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;shell&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; &#x2F;bin&#x2F;bash&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;u &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;o&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;c &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&amp;quot; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;m &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;&#x2F;dev&#x2F;null
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;else
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;useradd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; --&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;shell&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt; &#x2F;bin&#x2F;bash&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;u &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_ID&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;o&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;c &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;&amp;quot; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;m &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c594c5;&quot;&gt;fi
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;usermod&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt; -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f99157;&quot;&gt;g &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;GROUP_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} ${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;cd &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;HOMEDIR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#6699cc;&quot;&gt;exec &#x2F;usr&#x2F;sbin&#x2F;gosu &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;${&lt;&#x2F;span&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;USER_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;} &amp;quot;$&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ec5f67;&quot;&gt;@&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5fb3b3;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;這份程式碼的目的就是在系統中使用 host system 的 uid 跟gid來即時新增使用者。
+唯一不同的是，我使用了 &lt;code&gt;DOCKER_USERNAME_PASSIN&lt;&#x2F;code&gt;, &lt;code&gt;DOCKER_GROUPNAME_PASSIN&lt;&#x2F;code&gt;, &lt;code&gt;DOCKER_HOMEDIR_PASSIN&lt;&#x2F;code&gt; 三個變數。
+這些環境變數一樣也是從 Dockerfile 中設置而來。而 Dockerfile 也只是擔任轉介 Makefile 中的內容而已。&lt;&#x2F;p&gt;
+&lt;p&gt;最後，我們可以看看 activate_docker.sh。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;activate-docker-sh&quot;&gt;activate_docker.sh&lt;&#x2F;h2&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code class=&quot;language-Bash&quot; data-lang=&quot;Bash&quot;&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;#! &#x2F;bin&#x2F;bash
+make activate
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;只有兩行。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;liang-xing-de-bei-hou-yong-yi&quot;&gt;兩行的背後用意&lt;&#x2F;h3&gt;
+&lt;p&gt;其實 &lt;code&gt;activate_docker.sh&lt;&#x2F;code&gt; 的唯一目的就只是呼叫 &lt;code&gt;make activate&lt;&#x2F;code&gt; 指令，而 &lt;code&gt;make activate&lt;&#x2F;code&gt; 也就只是呼叫 &lt;code&gt;activae_docker.py&lt;&#x2F;code&gt; 而以，一個簡單的想法是，為什麼不要直接把 &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt; 設定成可以直接呼叫，然後就直接呼叫 &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt; 就好了呢？&lt;&#x2F;p&gt;
+&lt;p&gt;第一也是最重要的原因：方便管理 - 我們為了把變數共享在 makefile 中，讓開發者在未來想修改時只修改 makefile 的單一變數就能完成。
+第二點是 &lt;code&gt;make activate&lt;&#x2F;code&gt; 指令本身難以用 tab 自動補全，只要不是 fish shell 用戶基本上就&lt;strong&gt;一定需要打字&lt;&#x2F;strong&gt;，使用另外一個 shell script 讓我們可以只輸入 &lt;code&gt;.&#x2F;&amp;lt;tab&amp;gt;&lt;&#x2F;code&gt; 就完成效果。 這樣在使用的體驗上會更加流暢。&lt;&#x2F;p&gt;
+&lt;p&gt;第三點則跟專案架構有關 : 我們為了課程作業的新手導向需求，故意修改過專案架構，所以跟這裏擺出來的畫面有些不同。
+在課程的作業設計之中，我採取把對於完成作業不需要知道的知識隱藏起來，降低新手們的認知負擔。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;tui-jian-de-zhuan-an-jia-gou-mo-shi&quot;&gt;推薦的專案架構模式&lt;&#x2F;h3&gt;
+&lt;p&gt;同上所述，如果你想把專案打包給新手使用，你可以嘗試把大部分跟 docker 有關的程式碼都藏進另一個資料夾中(&#x2F;docker)，專案主目錄中只留下 &lt;code&gt;activae_docker.sh&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;p&gt;在這裡把我設計的作業資料夾架構放在這裏給你參考。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b2c2f;&quot;&gt;
+&lt;code&gt;&lt;span style=&quot;color:#cccece;&quot;&gt;compiler-hw1&#x2F;
+├── Makefile
+├── activate_docker.sh
+├── docker
+│   ├── Dockerfile
+│   ├── Makefile
+│   ├── activate_docker.py
+│   └── entrypoint.sh
+├── src
+│   └── main.cpp
+└── test
+    ├── test.py
+    └── testcase
+        ├── answer
+        └── output
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;geng-duo-you-hua-jian-yi&quot;&gt;更多優化建議&lt;&#x2F;h2&gt;
+&lt;p&gt;在理解完基本的架構之後，這裡提供一些想法來讓你將 docker 應用到你的開發環境中。&lt;&#x2F;p&gt;
+&lt;p&gt;如果你想縮小 docker image 編譯出的大小，我會考慮使用 Multistage build 並盡可能在 dockerfile 中減少 &lt;code&gt;RUN&lt;&#x2F;code&gt; 指令的使用次數。（在這份 dockerfile 中為了清楚並沒有這麼做）。甚至是採用 alpine linux 當作基本發行版。只不過要注意的是， alpine linux 因為只是在系統功能上實踐最基本介面，這麼做的後果有可能會拖慢你開發環境系統的效能。&lt;&#x2F;p&gt;
+&lt;p&gt;如果你想要使用不同的 shell，你會需要自己理解這些 shell 有哪些 history file 並自行修改 &lt;code&gt;activate_docker.py&lt;&#x2F;code&gt; 來掛載到目標 container 之中。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;tui-jian-yue-du-yu-can-kao&quot;&gt;推薦閱讀與參考&lt;&#x2F;h2&gt;
+&lt;p&gt;如果你也想要用 docker 當作自己的開發環境，這裏推薦我在設計時讀過的一些文章以及 dockerfile 參考，讀完之後相信會對你很有幫助。&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;docker container 身份對應&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;jtreminio.com&#x2F;blog&#x2F;running-docker-containers-as-current-host-user&#x2F;&quot;&gt;Running Docker Containers as Current Host User&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;denibertovic.com&#x2F;posts&#x2F;handling-permissions-with-docker-volumes&#x2F;&quot;&gt;Handling-permissions-with-docker-volumes&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;推薦的 makefile 以及 dockerfile&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;marmelab&#x2F;make-docker-command&#x2F;blob&#x2F;master&#x2F;Makefile&quot;&gt;marmelab&#x2F;make-docker-command&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;h2 id=&quot;jie-yu&quot;&gt;結語&lt;&#x2F;h2&gt;
+&lt;p&gt;分享完畢，有任何想法的話也希望你可以到 &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;ianre657&#x2F;setup-develop-env-with-docker&quot;&gt;Github&lt;&#x2F;a&gt; 上回饋給我，又或是寫 email 告知
+我們下次再見~&lt;&#x2F;p&gt;
+</content>
+	</entry>
+</feed>

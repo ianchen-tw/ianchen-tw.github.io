@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <meta content="#ffffff" name="theme-color" />
+  <meta content="#da532c" name="msapplication-TileColor" />
+
+  
+<link href='&#x2F;icons&#x2F;site.webmanifest' rel="manifest" />
+
+
+
+<link href='&#x2F;icons&#x2F;favicon-16x16.png' rel="icon" sizes="16x16" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;favicon-32x32.png' rel="icon" sizes="32x32" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;apple-touch-icon.png' rel="apple-touch-icon" sizes="180x180" />
+
+  
+
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="preload" as="style" />
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="stylesheet" />
+
+
+  
+  
+
+  <title>
+     IanChen | C 跟 Python 本質上的差異 
+  </title>
+
+  
+  <script src="https://kit.fontawesome.com/ab28266223.js" crossorigin="anonymous"></script>
+
+  
+  
+  
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-116173804-1"></script>
+  <script type="text/javascript">
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "UA-116173804-1");
+  </script>
+
+
+</head>
+
+<body class="">
+  <nav id="navbar" aria-label="section navigation" class="navbar" role="navigation">
+<div class="container">
+    <div class="navbar-brand">
+    <a id="navbar-title" class="navbar-item has-text-weight-bold" href="/about">IanChen</a>
+    <a aria-expanded="false" aria-label="menu" class="navbar-burger burger" data-target="navMenu" role="button">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+    </a>
+    </div>
+    <div class="navbar-menu" id="navMenu">
+        <div class="navbar-start">
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;about'>
+                    About
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;posts'>
+                    Posts
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags'>
+                    Tags
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;archives'>
+                    Archives
+                </a>
+            
+        </div>
+        <div class="navbar-end has-text-centered">
+            <a class="navbar-item" darkmode-switch-button id="dark-mode" title="Switch to dark theme">
+            <span class="icon">
+                <i class="fas fa-adjust"></i>
+            </span>
+            </a>
+        </div>
+    </div>
+</div>
+</nav>
+
+  
+  
+
+  
+<section class="section pb-0">
+  <div class="container">
+    <div class="columns">
+      <div class="column is-6 is-offset-3">
+        <article>
+          <h1 class="title">C 跟 Python 本質上的差異</h1>
+          <h2 class="subtitle">你有沒有想過，我們寫的程式碼是怎麼被電腦執行的？</h2>
+          <div class="columns is-multiline is-gapless">
+            <div class="column is-8">
+              
+  <p class="theme-color-dimmed">
+    <a href="/about">
+      
+        <img class="avatar" src="&#x2F;images&#x2F;avatar.jpg">
+      
+    </a>
+    
+      <a href="/about">
+        <span class='author-name'>
+          奕安
+        </span>
+      </a>
+      published on
+    
+    <span class="icon">
+      <i class="far fa-calendar-alt"></i>
+    </span>
+    <time datetime='2019-08-18'>August 18, 2019</time>
+  </p>
+
+            </div>
+            <div class="column is-4 has-text-right-desktop">
+              
+  <p class="has-text-grey">
+    <span class="icon">
+      <i class="far fa-clock"></i>
+    </span>
+    14 min,
+    <span class="icon">
+      <i class="fas fa-pencil-alt"></i>
+    </span>
+    2700 words
+  </p>
+
+            </div>
+            <div class="column is-4">
+              
+            </div>
+            <div class="column is-8 has-text-right-desktop">
+               
+  <p>
+    <span class="has-text-weight-normal">Tags:</span>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;python&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        python
+      </a>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;cheng-shi&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        程式
+      </a>
+    
+  </p>
+ 
+            </div>
+          </div>
+          <div class="content has-text-justified">
+            <p>我在這裡提供一個面向，可以很簡單的解釋 C 與 Python 間本質上的差異。首先，讓我們從「設計」這些程式語言的角度來看看有什麼差別。實際上不算困難，不需要程式設計的經驗就能夠理解。</p>
+<p><img src="https://ianchen.tw/posts/2019-difference-between-c-and-python/python-exe-scene.jpg" alt="Python運行場景" /></p>
+<span id="continue-reading"></span>
+<p>先來稍微看看這段 C 語言的程式碼，如果忽略掉那些不熟悉的語法，稍微讀看看發生了什麼事情。</p>
+<p>程式在一開始時跟電腦說等等會用到三個變數，並且各自命名為 a, b, sum 供往後參考。將 a+b 的計算結果存回 sum 之中，最後呼叫 <code>printf</code> ( print formatted ) 函式在終端機顯示我想要的數字結果。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-c" data-lang="c"><span style="color:#5f6364;">// c version
+</span><span style="color:#c594c5;">#include </span><span style="color:#5fb3b3;">&lt;</span><span style="color:#99c794;">stdio.h</span><span style="color:#5fb3b3;">&gt;
+</span><span style="color:#c594c5;">int </span><span style="color:#6699cc;">main</span><span style="color:#5fb3b3;">(</span><span style="color:#c594c5;">void</span><span style="color:#5fb3b3;">){
+  </span><span style="color:#c594c5;">int</span><span style="color:#cccece;"> a</span><span style="color:#5fb3b3;">,</span><span style="color:#cccece;">b</span><span style="color:#5fb3b3;">,</span><span style="color:#cccece;">sum</span><span style="color:#5fb3b3;">;
+</span><span style="color:#cccece;">  a</span><span style="color:#5fb3b3;">=</span><span style="color:#f99157;">1</span><span style="color:#5fb3b3;">;</span><span style="color:#cccece;">b</span><span style="color:#5fb3b3;">=</span><span style="color:#f99157;">2</span><span style="color:#5fb3b3;">;
+</span><span style="color:#cccece;">  sum </span><span style="color:#5fb3b3;">=</span><span style="color:#cccece;"> a</span><span style="color:#5fb3b3;">+</span><span style="color:#cccece;">b</span><span style="color:#5fb3b3;">;
+  </span><span style="color:#6699cc;">printf</span><span style="color:#5fb3b3;">(&quot;</span><span style="color:#99c794;">Sum of a and b is :%d</span><span style="color:#5fb3b3;">\n&quot;,</span><span style="color:#6699cc;"> sum</span><span style="color:#5fb3b3;">);
+  </span><span style="color:#c594c5;">return </span><span style="color:#f99157;">0</span><span style="color:#5fb3b3;">;
+}
+</span></code></pre>
+<p>程式運行結果:</p>
+<blockquote>
+<p><code>Sum of a and b is : 3</code></p>
+</blockquote>
+<p>這是一個很簡單的Ｃ程式。接下來的這段 Python 程式的目的與結果會跟上面那段完全相同。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-python" data-lang="python"><span style="color:#5f6364;"># python version
+</span><span style="color:#c594c5;">def </span><span style="color:#6699cc;">main</span><span style="color:#5fb3b3;">():
+  </span><span style="color:#cccece;">a</span><span style="color:#5fb3b3;">=</span><span style="color:#f99157;">1</span><span style="color:#5fb3b3;">;</span><span style="color:#cccece;">b</span><span style="color:#5fb3b3;">=</span><span style="color:#f99157;">2
+  </span><span style="color:#cccece;">Sum </span><span style="color:#5fb3b3;">= </span><span style="color:#cccece;">a</span><span style="color:#5fb3b3;">+</span><span style="color:#cccece;">b 
+  </span><span style="color:#6699cc;">print</span><span style="color:#5fb3b3;">(&quot;</span><span style="color:#99c794;">Sum of a and b is :</span><span style="color:#5fb3b3;">{}&quot;.</span><span style="color:#6699cc;">format</span><span style="color:#5fb3b3;">(</span><span style="color:#6699cc;">Sum</span><span style="color:#5fb3b3;">))
+
+</span><span style="color:#c594c5;">if </span><span style="color:#cccece;">__name__ </span><span style="color:#5fb3b3;">== &quot;</span><span style="color:#99c794;">__main__</span><span style="color:#5fb3b3;">&quot;:
+  </span><span style="color:#6699cc;">main</span><span style="color:#5fb3b3;">()
+</span></code></pre>
+<blockquote>
+<p><code>Sum of a and b is : 3</code></p>
+</blockquote>
+<p>沒有辦法全部讀懂也不是個問題，你只要注意到兩段程式碼在文字上的內容是差不多的，於是你可能會很簡單的推測，這兩者的差異是不是只存在語法上的不同？</p>
+<p>不，事實遠不如此。</p>
+<p>他們擁有完全不同的運作模式。</p>
+<h2 id="bian-yi-shi-cheng-shi-yu-yan-bei-yun-zuo-de-di-yi-bu">編譯是程式語言被運作的第一步</h2>
+<p>電腦計算誕生之初，所有邏輯、數字都只有 0 跟 1 、開與關的概念。最簡單、直接寫程式的方法就是參照每個計算器電路的說明書，分別給每個輸入用電路腳位的給予高或低的電壓來進行輸入，我們再透過人為解釋輸出電路各腳位的電壓高低來知道最後的運算結果。</p>
+<p>程式語言誕生後，程式設計師得以從直接操作 0 與 1 位元值編寫程式的方法中解放，再也不用自行寫入一個個指令，但從近百年前至今，電腦運作的概念從來沒改變過，就是 0 跟 1。所有有關計算的事情最終都回歸 0 與 1，不管是最初機房大的電腦到現在你手機中的晶片皆屬如此。</p>
+<p>編譯 ( Compile )，簡單來說就是將你寫的程式碼直接翻譯回 0 與 1 的世界中，成為一排排只有 0 跟 1 的指令。而編譯器（ Compiler ），就是專門執行編譯的一支程式，我們向他輸入寫好的Ｃ語言程式碼，獲得可以點兩下執行的可執行檔案，電腦會一一參照這些指令中的內容計算出結果，並將結果儲存下來跟往後的指令進行互動。</p>
+<p>C 語言的執行情況很簡單直白，就是透過編譯器將Ｃ程式碼編譯成一堆指令，並且存成一個檔案，當你執行程式時，系統會將該檔案中的指令一個個餵給 CPU 執行（CPU - Central Processing Unit，電腦進行計算的關鍵組件 ），又或更正確來說，CPU會自行依序讀取檔案中一行行的指令來執行，就像我們把紙放進碎紙機時，他會自動吃紙的過程一般。</p>
+<p><img src="https://ianchen.tw/posts/2019-difference-between-c-and-python/c-compile.jpg" alt="C語言的編譯場景" /></p>
+<p><img src="https://ianchen.tw/posts/2019-difference-between-c-and-python/c-exe-scene.jpg" alt="C語言運行場景" /></p>
+<p>但 Python 的情況則不然。我喜歡將 C 與 Python 兩種語言的差異視作一種概念演進。即便他們都不是這類語言的創世元老。</p>
+<h2 id="python-cheng-shi-bing-bu-shi-bei-zhi-jie-zhi-xing">Python 程式並不是被直接執行</h2>
+<p>Python 的運作模式很有趣，第一次聽見的人可能要仔細想想。想像有一個小助手在程式開始之初就興沖沖的跑到你面前問你：「老闆接下來要幹嘛？」而你說完之後他總會待在原地想想你的意思，然後消失一陣子，但不久又馬上衝回來再問你一遍。這樣的情境不斷循環，直到你解僱他或不小心命令他吃絲瓜讓他死掉（真的難吃到爆炸）讓他沒辦法回應你為止。</p>
+<p>實際上不都是一行行的指令要電腦去運作嗎？有什麼差別？</p>
+<p>有，這個小助手其實是另一支程式，當你執行  Python 程式時，實際上就是呼叫出這個小助手來讀你的程式碼。</p>
+<p>他會在執行期間才開始理解你程式碼的每一步驟的意義，並且即時轉換成一個個早已寫好的指令模組，讓電腦一次執行一大堆指令，這個行為叫做<code>直譯</code>( Interpret )</p>
+<p><img src="https://ianchen.tw/posts/2019-difference-between-c-and-python/python-exe-scene.jpg" alt="Python運行場景" /></p>
+<p>而這種在實際執行時才會將最初的程式碼轉換成電腦能讀的語言的程式，稱為<code>動態語言</code>。</p>
+<p>他們在設計的概念上脫離了過去純計算的想法，透過這層小助手在概念上的抽象化，動態程式語言的寫作更逼近了設計師本體，我們也能很簡單的在動態語言中根據外界的事物直接修改程式的架構本身，比如說根據使用者輸入來定義新型別，或是使用如 函式產生器 等等新奇古怪的用法。電腦很低能，但 Python 稍微聰明一些，你想得到的，基本上都做得到。所以我們也會把動態語言歸類成高階語言的一種。</p>
+<p>順道一題，剛才提到的小助手，在 Python 開發者之間的正確名稱為 <code>直譯器</code> (interpreter)。</p>
+<h2 id="c-yu-python-yun-xing-shi-de-feng-jing-gui-cheng-yu-nao-shi">C 與 Python 運行時的風景 - 鬼城與鬧市</h2>
+<p>先將主題拉回 Python，首先稍微擴充一下剛剛提到 Python 的運行環境，當你跟小助手說完話之後，他其實跑去了一個充滿人的市場中，開始調度其他人做事，扮起了你從來沒看見的，大老闆的角色。</p>
+<p>當你說想要有一個裁縫鋪時，他馬上跑去市場開了一間，還請了一為裁縫師傅駐店經營。當你再跟他說你現在想要拿到一把裁縫刀時，他再趕回市場大呼一聲「裁縫店的老闆在哪？給我來把裁縫刀！」「要多久 要多久 要多久，你各位啊，是不是想全連洞八到退伍？」，午睡中的裁縫店老闆姍姍來遲，於是他拿著剛領到的刀衝回你面前，「老闆接下來要幹嘛？」他一慣的面帶微笑，但臉上滿是剛才激烈運動後爆出來的青筋，充滿了詭異跟不協調 —  Python 運行環境之中，直譯器會知道並管理每個物件的狀態。這是 Python 運行時的樣子。</p>
+<p>而 C 語言呢？</p>
+<p>登！剛才的小助手消失了，市集除了你自己以外一個人都沒有。待了久一點你開始發現有點不對勁，一回神發現原本放在你前面的木桶竟然變成了一堆漂浮在空中的數字！</p>
+<p>是的，當 C 語言運行時，所發生的一切都應該被視為赤裸裸的數字跟記憶體位址，一切你熟悉的語法在運行時都會消失，或是說變成他最原始的樣貌 -  數字，裁縫鋪的值是數字87，裁縫刀存在於 0x1234 的位址中（值在這裡不重要）。C 語言的運行環境是個鬼城，沒有人，只有滿滿的數字跟不停運算的 CPU。</p>
+<p>C 語言的語法只是個假象，當你跟 C 越熟悉、路走的越遠時，你就越能體會到他背後那些「數字」的本質。我們將程式碼在執行之前就被編譯完成，執行時環境只是一個鬼城的Ｃ語言歸類為<code>靜態語言</code>。</p>
+<h2 id="wei-liao-ni-wo-zao-liao-zheng-ge-shi-jie">為了你，我造了整個世界</h2>
+<p>希望看到這裡，你已經能理解 C 與 Python 兩者的差異，在這裡提一下兩者間最常會被比較的事情 - 運算速度。</p>
+<p>想像一下， Python 這樣是一個到了運行時小幫手才開始理解你想要做什麼，並且需要自行管理一大堆資源訊息的語言。相對於 C 而言，Python 直譯器的這層抽象化是直接導致效能低於 C言的關鍵。</p>
+<p>或許一開始就只是想拿一把裁縫刀，在 Ｃ語言中只要在某個記憶體區塊中填入數字，但在 Python 中，小幫手總是必須走過創造市集，招募裁縫師，最後跟師傅拿裁縫刀的手續。煩都煩死了。</p>
+<blockquote>
+<p>像我這種重視效能的人永遠都只寫Ｃ語言呢。 - C父</p>
+</blockquote>
+<p>真的嗎？</p>
+<p>假的，隨便唬唬都信，嘻嘻。</p>
+<p>C 與  Python 若只單單比較速度是不公平的，因為會這樣做的人往往沒有考慮到兩種語言在功能跟方便性的差距。而且在一般開發者的使用下，兩者運算速度的差異也是一般人體會不出來的。</p>
+<p>舉個例子：</p>
+<ul>
+<li>花 10 分鐘寫一支以後只用一次的 Python 程式，運行時間 0.01 秒</li>
+<li>花 30 分鐘寫一支以後只用一次的、相同功能的 C 程式，運行時間 0.0001 秒</li>
+</ul>
+<p>你會選哪一種情況呢？</p>
+<p>在這種情況下，我會選擇第一個，但提醒一下，第二個在效能上可是快了第一個 100 倍的。</p>
+<h2 id="xiao-zong-jie">小總結</h2>
+<p>Ｃ是靜態語言，而 Python 是動態語言，兩者最大的差異就是將程式碼轉換成二進位數字的時機，以及運行程式時有沒有直譯器存在，共同運作。</p>
+<p>Ｃ語言的編譯發生在我們將程式碼餵給編譯器的瞬間，在那之後我們會拿到一個可直接讓CPU讀取，充滿指令碼的可執行檔案。</p>
+<p>Python 語言的運行則是我們直接執行直譯器，並將一行行程式碼當作指令輸入到直譯器中，他會每個瞬間知道並管理現在有哪些變數與函式存在於程式之中。</p>
+<p>大家最常比較，兩者間的「效能」差異，其實並不應該只列計算速度作為參考，而必須同時將設計者的開發時間納入考量。根據不同情況自己做取捨。</p>
+
+          </div>
+        </article>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+
+   
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <nav class="level">
+          
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2020-compiler-redesign-in-nctu&#x2F;"
+            >
+              <span class="icon mr-2">
+                <i class="fas fa-arrow-circle-left"></i>
+              </span>
+              Github 編譯器課程改革 - 我在交大資工
+            </a>
+          </div>
+           
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2019-exchange-report&#x2F;"
+            >
+              UIUC交換期末心得(學校版本)<span class="icon ml-2">
+                <i class="fas fa-arrow-circle-right"></i>
+              </span>
+            </a>
+          </div>
+            
+        </nav>
+      </div>
+    </div>
+  </div>
+</section>
+ 
+
+    
+
+  <footer class="py-4">
+  <p class="has-text-centered">© 2018 Ian Chen</p>
+</footer>
+
+  <script src="https:&#x2F;&#x2F;ianchen.tw&#x2F;js&#x2F;site.js"></script>
+    
+
+</body>
+
+</html>

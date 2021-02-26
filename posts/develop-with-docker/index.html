@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <meta content="#ffffff" name="theme-color" />
+  <meta content="#da532c" name="msapplication-TileColor" />
+
+  
+<link href='&#x2F;icons&#x2F;site.webmanifest' rel="manifest" />
+
+
+
+<link href='&#x2F;icons&#x2F;favicon-16x16.png' rel="icon" sizes="16x16" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;favicon-32x32.png' rel="icon" sizes="32x32" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;apple-touch-icon.png' rel="apple-touch-icon" sizes="180x180" />
+
+  
+
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="preload" as="style" />
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="stylesheet" />
+
+
+  
+  
+
+  <title>
+     IanChen | 使用 Docker 設置開發環境 
+  </title>
+
+  
+  <script src="https://kit.fontawesome.com/ab28266223.js" crossorigin="anonymous"></script>
+
+  
+  
+  
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-116173804-1"></script>
+  <script type="text/javascript">
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "UA-116173804-1");
+  </script>
+
+
+</head>
+
+<body class="">
+  <nav id="navbar" aria-label="section navigation" class="navbar" role="navigation">
+<div class="container">
+    <div class="navbar-brand">
+    <a id="navbar-title" class="navbar-item has-text-weight-bold" href="/about">IanChen</a>
+    <a aria-expanded="false" aria-label="menu" class="navbar-burger burger" data-target="navMenu" role="button">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+    </a>
+    </div>
+    <div class="navbar-menu" id="navMenu">
+        <div class="navbar-start">
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;about'>
+                    About
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;posts'>
+                    Posts
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags'>
+                    Tags
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;archives'>
+                    Archives
+                </a>
+            
+        </div>
+        <div class="navbar-end has-text-centered">
+            <a class="navbar-item" darkmode-switch-button id="dark-mode" title="Switch to dark theme">
+            <span class="icon">
+                <i class="fas fa-adjust"></i>
+            </span>
+            </a>
+        </div>
+    </div>
+</div>
+</nav>
+
+  
+  
+
+  
+<section class="section pb-0">
+  <div class="container">
+    <div class="columns">
+      <div class="column is-6 is-offset-3">
+        <article>
+          <h1 class="title">使用 Docker 設置開發環境</h1>
+          <h2 class="subtitle"></h2>
+          <div class="columns is-multiline is-gapless">
+            <div class="column is-8">
+              
+  <p class="theme-color-dimmed">
+    <a href="/about">
+      
+        <img class="avatar" src="&#x2F;images&#x2F;avatar.jpg">
+      
+    </a>
+    
+      <a href="/about">
+        <span class='author-name'>
+          奕安
+        </span>
+      </a>
+      published on
+    
+    <span class="icon">
+      <i class="far fa-calendar-alt"></i>
+    </span>
+    <time datetime='2020-02-15'>February 15, 2020</time>
+  </p>
+
+            </div>
+            <div class="column is-4 has-text-right-desktop">
+              
+  <p class="has-text-grey">
+    <span class="icon">
+      <i class="far fa-clock"></i>
+    </span>
+    13 min,
+    <span class="icon">
+      <i class="fas fa-pencil-alt"></i>
+    </span>
+    2460 words
+  </p>
+
+            </div>
+            <div class="column is-4">
+              
+            </div>
+            <div class="column is-8 has-text-right-desktop">
+               
+  <p>
+    <span class="has-text-weight-normal">Tags:</span>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;docker&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        docker
+      </a>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;dev&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        Dev
+      </a>
+    
+  </p>
+ 
+            </div>
+          </div>
+          <div class="content has-text-justified">
+            <p>這套流程最初是為了交大資工游逸平老師的編譯器課程作業所設計，目的是讓對 docker 完全沒有經驗的大學部同學也能快速使用我們的作業環境，並且作為未來作業全自動化批改的重要里程碑。</p>
+<span id="continue-reading"></span>
+<p>這門課程作業正在被助教群快速翻新來跟上時代中。如果你對課程有興趣且你是交大學生，可以來修看看，體驗看看這門我有自信成為交大資工教材最完整跟紮實的課程(助教自己說)，並用你的人頭數來實際增加我的助教薪水。(拜託)</p>
+<h2 id="biao-zhun-gong-zuo-liu-cheng">標準工作流程</h2>
+<ol>
+<li>進入專案目錄</li>
+<li>執行  <code>activate_docker.sh</code> (實際上就是呼叫 activate_docker.py)</li>
+<li>直接開始開發</li>
+</ol>
+<h3 id="te-xing-jie-shao">特性介紹</h3>
+<p>這個工作流程就是模仿一般有虛擬話開發環境的使用模式，但實際上是直接進入一個乾淨的 docker 系統，我們會直接把呼叫 <code>activate_docker.sh</code> 時的工作目錄掛載到 docker 中的家目錄之下，並且同時完成使用者身份對應，讓你避免掉奇怪的檔案權限問題處理。</p>
+<p>這裡的所有檔案都放在 <a href="https://github.com/ianre657/setup-develop-env-with-docker">Github</a> 上，你可以從上面拿到我的程式碼。</p>
+<p>接下來我會解釋這個東西的設計方法，並且如果你想把這份程式碼當範本的話，你該怎麼做</p>
+<h2 id="makefile">Makefile</h2>
+<p>第一份要看的資訊是 Makefile ，所有可以客製化的變數都在 Makefile 中，比如說進入 container（容器）中的使用者/群組名稱、主機名稱等，透過這個 Makefile 來集中管理並在下指令時傳入。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Makefile" data-lang="Makefile"><span style="color:#6699cc;">all</span><span style="color:#5fb3b3;">:</span><span style="color:#cccece;"> build
+</span><span style="color:#6699cc;">.PHONY</span><span style="color:#5fb3b3;">:</span><span style="color:#cccece;"> build activate
+
+</span><span style="color:#6699cc;"># Do not named user and group the same, this would cause error in entrypoint.sh
+#	because we create the group before user exist which allowing name-crash in useradd command
+CONTAINER_USERNAME = ian
+CONTAINER_GROUPNAME = iang
+CONTAINER_HOSTNAME = dev-env
+IMAGE_NAME ?= my-dev-env
+
+HOMEDIR = /home/</span><span style="color:#c594c5;">${</span><span style="color:#f99157;">CONTAINER_USERNAME</span><span style="color:#c594c5;">}
+
+</span><span style="color:#6699cc;">build</span><span style="color:#5fb3b3;">:</span><span style="color:#cccece;"> Dockerfile
+</span><span style="color:#6699cc;">	docker build </span><span style="color:#5fb3b3;">\
+</span><span style="color:#6699cc;">		--build-arg CONTAINER_USERNAME=</span><span style="color:#c594c5;">${</span><span style="color:#f99157;">CONTAINER_USERNAME</span><span style="color:#c594c5;">} </span><span style="color:#5fb3b3;">\
+</span><span style="color:#6699cc;">		--build-arg CONTAINER_GROUPNAME=</span><span style="color:#c594c5;">${</span><span style="color:#f99157;">CONTAINER_GROUPNAME</span><span style="color:#c594c5;">} </span><span style="color:#5fb3b3;">\
+</span><span style="color:#6699cc;">		--build-arg CONTAINER_HOMEDIR=</span><span style="color:#c594c5;">${</span><span style="color:#f99157;">HOMEDIR</span><span style="color:#c594c5;">} </span><span style="color:#5fb3b3;">\
+</span><span style="color:#6699cc;">		-t </span><span style="color:#c594c5;">$(</span><span style="color:#f99157;">IMAGE_NAME</span><span style="color:#c594c5;">)</span><span style="color:#6699cc;"> .
+
+activate</span><span style="color:#5fb3b3;">:
+	</span><span style="color:#99c794;">python3 activate_docker.py </span><span style="color:#5fb3b3;">\
+</span><span style="color:#99c794;">		--username </span><span style="color:#c594c5;">${</span><span style="color:#f99157;">CONTAINER_USERNAME</span><span style="color:#c594c5;">} </span><span style="color:#5fb3b3;">\
+</span><span style="color:#99c794;">		--homedir </span><span style="color:#c594c5;">${</span><span style="color:#f99157;">HOMEDIR</span><span style="color:#c594c5;">} </span><span style="color:#5fb3b3;">\
+</span><span style="color:#99c794;">		--imagename </span><span style="color:#c594c5;">${</span><span style="color:#f99157;">IMAGE_NAME</span><span style="color:#c594c5;">} </span><span style="color:#5fb3b3;">\
+</span><span style="color:#99c794;">		--hostname </span><span style="color:#c594c5;">${</span><span style="color:#f99157;">CONTAINER_HOSTNAME</span><span style="color:#c594c5;">}
+</span></code></pre>
+<p>在知道 Makfile 的用處之後，就可以讀一下實作功能的檔案們，
+第一位: dockerfile。</p>
+<h2 id="dockerfile-entrypoint-sh">dockerfile &amp;&amp; entrypoint.sh</h2>
+<p>以製作 python3.8 的環境當作範例，首先你會需要一份可以動的 dockerfile</p>
+<p>可以注意一下這個檔案除了安裝 Python 外有哪些不一樣的地方（還有 Makfile 傳入的變數）</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Dockerfile" data-lang="Dockerfile"><span style="color:#c594c5;">FROM</span><span style="color:#cccece;"> ubuntu:18.04
+
+</span><span style="color:#c594c5;">ARG </span><span style="color:#cccece;">PYTHON3_VERSION=3.8
+
+</span><span style="color:#c594c5;">RUN </span><span style="color:#cccece;">apt-get update \
+  &amp;&amp; apt-get install gosu \
+  &amp;&amp; apt-get install -y software-properties-common &amp;&amp; add-apt-repository -y ppa:deadsnakes/ppa \
+      &amp;&amp; apt-get install -y python${PYTHON3_VERSION} \
+      &amp;&amp; ln -sfn /usr/bin/python${PYTHON3_VERSION} /usr/bin/python3 \
+      &amp;&amp; ln -sfn /usr/bin/python${PYTHON3_VERSION} /usr/bin/python
+</span><span style="color:#c594c5;">RUN </span><span style="color:#cccece;">apt-get install -y gosu make
+
+</span><span style="color:#c594c5;">ARG </span><span style="color:#cccece;">CONTAINER_USERNAME=dummy
+</span><span style="color:#c594c5;">ARG </span><span style="color:#cccece;">CONTAINER_GROUPNAME=dummyg
+</span><span style="color:#c594c5;">ARG </span><span style="color:#cccece;">CONTAINER_HOMEDIR=/home/dummy
+
+</span><span style="color:#c594c5;">ENV </span><span style="color:#cccece;">DOCKER_USERNAME_PASSIN ${CONTAINER_USERNAME}
+</span><span style="color:#c594c5;">ENV </span><span style="color:#cccece;">DOCKER_GROUPNAME_PASSIN ${CONTAINER_GROUPNAME}
+</span><span style="color:#c594c5;">ENV </span><span style="color:#cccece;">DOCKER_HOMEDIR_PASSIN ${CONTAINER_HOMEDIR}
+
+</span><span style="color:#5f6364;"># indicate we are inside docker
+</span><span style="color:#c594c5;">ENV </span><span style="color:#cccece;">STATUS_DOCKER_ACTIVATED 1
+
+</span><span style="color:#c594c5;">COPY</span><span style="color:#cccece;"> entrypoint.sh /usr/local/bin/entrypoint.sh
+</span><span style="color:#c594c5;">RUN </span><span style="color:#cccece;">chmod +x /usr/local/bin/entrypoint.sh
+
+</span><span style="color:#5fb3b3;">CMD </span><span style="color:#cccece;">[</span><span style="color:#5fb3b3;">&quot;</span><span style="color:#99c794;">/bin/bash</span><span style="color:#5fb3b3;">&quot;</span><span style="color:#cccece;">]
+</span><span style="color:#5fb3b3;">ENTRYPOINT </span><span style="color:#cccece;">[</span><span style="color:#5fb3b3;">&quot;</span><span style="color:#99c794;">/usr/local/bin/entrypoint.sh</span><span style="color:#5fb3b3;">&quot;</span><span style="color:#cccece;">]
+</span></code></pre>
+<p>這份 dockerfile 最重要的是最後兩行指令 :</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Dockerfile" data-lang="Dockerfile"><span style="color:#cccece;">CMD [&quot;/bin/bash&quot;]
+ENTRYPOINT [&quot;/usr/local/bin/entrypoint.sh&quot;]
+</span></code></pre>
+<p>這裏一次用到了  <code>CMD</code> 跟 <code>ENTRYPOINT</code>，在同時用到這兩個指令時會在 Container( 容器 ) 啟動時強制執行 <code>entrypoint.sh</code> 後才會執行預設的 CMD 指令</p>
+<p><code>entrypoint.sh</code> 的存在是為了動態將使用者在 host system (原本的系統環境) 跟 container 中檔案系統所顯示的使用者身份關聯起來。</p>
+<p>簡單來說，如果使用者在原本系統中的 uid (user id)跟 pimary gid (group id) 是1008 跟 1009，那他進入這份  <code>entrypoint.sh</code> 的docker container 之後所創建的所有檔案的所有權仍是 1008 跟 1009，當使用者離開環境之後看見所有在 container 下創建的檔案所有權都會是自己。</p>
+<p>會這樣做的背後原因很簡單，就是在 contianer image 中系統無法被修改的情況下追求最大的使用彈性，讓各式各樣的人都能在自己的系統中使用相同的 docker image 作為開發環境（原本的目的就是課程使用）。 所以如果想要建立的 docker image 不是屬於這種情況的話可以參考 <a href="https://denibertovic.com/posts/handling-permissions-with-docker-volumes/">Handling-permissions-with-docker-volumes</a> 中所提到的其他方式。</p>
+<p>除了 entrypoint 本身之外， <code>apt-get install gosu</code> 也是與他一起連動的，這是為了解決 Linux 的 su 指令無法正確達成 container 下的 signal 處理需求。</p>
+<p>在介紹完這個 dockerfile 之後 就要介紹一下輔助我們進入環境的腳本文件: <code>activate_docker.py</code></p>
+<h2 id="activate-docker-py">activate_docker.py</h2>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Python" data-lang="Python"><span style="color:#c594c5;">import </span><span style="color:#cccece;">sys
+</span><span style="color:#c594c5;">import </span><span style="color:#cccece;">subprocess
+</span><span style="color:#c594c5;">import </span><span style="color:#cccece;">pathlib
+</span><span style="color:#c594c5;">import </span><span style="color:#cccece;">argparse
+</span><span style="color:#c594c5;">from </span><span style="color:#cccece;">pathlib </span><span style="color:#c594c5;">import </span><span style="color:#cccece;">Path
+</span><span style="color:#c594c5;">import </span><span style="color:#cccece;">os
+
+parser </span><span style="color:#5fb3b3;">= </span><span style="color:#6699cc;">argparse</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">ArgumentParser</span><span style="color:#5fb3b3;">(
+  </span><span style="color:#f99157;">description</span><span style="color:#5fb3b3;">=&#39;</span><span style="color:#99c794;">Activate homework environment for compiler-s20</span><span style="color:#5fb3b3;">&#39;)
+</span><span style="color:#6699cc;">parser</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">add_argument</span><span style="color:#5fb3b3;">( &#39;</span><span style="color:#99c794;">-u</span><span style="color:#5fb3b3;">&#39;,&#39;</span><span style="color:#99c794;">--username</span><span style="color:#5fb3b3;">&#39;,</span><span style="color:#f99157;">default</span><span style="color:#5fb3b3;">=&quot;</span><span style="color:#99c794;">student</span><span style="color:#5fb3b3;">&quot;,)
+</span><span style="color:#6699cc;">parser</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">add_argument</span><span style="color:#5fb3b3;">( &#39;</span><span style="color:#99c794;">--hostname</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#f99157;">default</span><span style="color:#5fb3b3;">=&#39;</span><span style="color:#99c794;">compiler-s20</span><span style="color:#5fb3b3;">&#39;)
+</span><span style="color:#6699cc;">parser</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">add_argument</span><span style="color:#5fb3b3;">( &#39;</span><span style="color:#99c794;">--homedir</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#f99157;">default</span><span style="color:#5fb3b3;">=&#39;</span><span style="color:#99c794;">/home/student</span><span style="color:#5fb3b3;">&#39;)
+</span><span style="color:#6699cc;">parser</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">add_argument</span><span style="color:#5fb3b3;">( &#39;</span><span style="color:#99c794;">-i</span><span style="color:#5fb3b3;">&#39;,&#39;</span><span style="color:#99c794;">--imagename</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#f99157;">default</span><span style="color:#5fb3b3;">=&#39;</span><span style="color:#99c794;">compiler-s20-env</span><span style="color:#5fb3b3;">&#39;)
+
+</span><span style="color:#cccece;">args </span><span style="color:#5fb3b3;">= </span><span style="color:#6699cc;">parser</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">parse_args</span><span style="color:#5fb3b3;">()
+</span><span style="color:#cccece;">DOCKER_USER_NAME </span><span style="color:#5fb3b3;">= </span><span style="color:#cccece;">args</span><span style="color:#5fb3b3;">.</span><span style="color:#cccece;">username
+DOCKER_HOST_NAME </span><span style="color:#5fb3b3;">= </span><span style="color:#cccece;">args</span><span style="color:#5fb3b3;">.</span><span style="color:#cccece;">hostname
+DOCKER_IMG_NAME </span><span style="color:#5fb3b3;">= </span><span style="color:#cccece;">args</span><span style="color:#5fb3b3;">.</span><span style="color:#cccece;">imagename
+dk_home </span><span style="color:#5fb3b3;">= </span><span style="color:#cccece;">args</span><span style="color:#5fb3b3;">.</span><span style="color:#cccece;">homedir
+
+dirpath </span><span style="color:#5fb3b3;">= </span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">path</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">dirname</span><span style="color:#5fb3b3;">(</span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">path</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">abspath</span><span style="color:#5fb3b3;">(</span><span style="color:#6699cc;">__file__</span><span style="color:#5fb3b3;">))
+</span><span style="color:#c594c5;">def </span><span style="color:#6699cc;">main</span><span style="color:#5fb3b3;">():
+   </span><span style="color:#c594c5;">if </span><span style="color:#5fb3b3;">&quot;</span><span style="color:#99c794;">STATUS_DOCKER_ACTIVATED</span><span style="color:#5fb3b3;">&quot; in </span><span style="color:#cccece;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#cccece;">environ</span><span style="color:#5fb3b3;">:
+      </span><span style="color:#6699cc;">print</span><span style="color:#5fb3b3;">(&quot;</span><span style="color:#99c794;">You are already inside our docker environment, see?</span><span style="color:#5fb3b3;">&quot;)
+      </span><span style="color:#6699cc;">sys</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">exit</span><span style="color:#5fb3b3;">(</span><span style="color:#f99157;">0</span><span style="color:#5fb3b3;">)
+
+   </span><span style="color:#cccece;">cwd </span><span style="color:#5fb3b3;">= </span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">getcwd</span><span style="color:#5fb3b3;">()
+
+   </span><span style="color:#cccece;">bash_his </span><span style="color:#5fb3b3;">= </span><span style="color:#6699cc;">Path</span><span style="color:#5fb3b3;">(</span><span style="color:#c594c5;">f</span><span style="color:#5fb3b3;">&#39;{</span><span style="color:#6699cc;">dirpath</span><span style="color:#5fb3b3;">}</span><span style="color:#99c794;">/.history/docker_bash_history</span><span style="color:#5fb3b3;">&#39;)
+   </span><span style="color:#6699cc;">bash_his</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">parent</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">mkdir</span><span style="color:#5fb3b3;">(</span><span style="color:#f99157;">exist_ok</span><span style="color:#5fb3b3;">=</span><span style="color:#f99157;">True</span><span style="color:#5fb3b3;">)
+   </span><span style="color:#6699cc;">bash_his</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">touch</span><span style="color:#5fb3b3;">(</span><span style="color:#f99157;">exist_ok</span><span style="color:#5fb3b3;">=</span><span style="color:#f99157;">True</span><span style="color:#5fb3b3;">)
+
+   </span><span style="color:#cccece;">docker_options </span><span style="color:#5fb3b3;">= [
+      &#39;</span><span style="color:#99c794;">docker</span><span style="color:#5fb3b3;">&#39;, &#39;</span><span style="color:#99c794;">run</span><span style="color:#5fb3b3;">&#39;,
+      &#39;</span><span style="color:#99c794;">--rm</span><span style="color:#5fb3b3;">&#39;, &#39;</span><span style="color:#99c794;">-it</span><span style="color:#5fb3b3;">&#39;,
+      &#39;</span><span style="color:#99c794;">--hostname</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#cccece;">DOCKER_HOST_NAME</span><span style="color:#5fb3b3;">,
+      &#39;</span><span style="color:#99c794;">-e</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#c594c5;">f</span><span style="color:#5fb3b3;">&#39;</span><span style="color:#99c794;">LOCAL_USER_ID=</span><span style="color:#5fb3b3;">{</span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">getuid</span><span style="color:#5fb3b3;">()}&#39;,
+      &#39;</span><span style="color:#99c794;">-e</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#c594c5;">f</span><span style="color:#5fb3b3;">&#39;</span><span style="color:#99c794;">LOCAL_USER_GID=</span><span style="color:#5fb3b3;">{</span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">getgid</span><span style="color:#5fb3b3;">()}&#39;,
+      &#39;</span><span style="color:#99c794;">-v</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#c594c5;">f</span><span style="color:#5fb3b3;">&#39;{</span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">getcwd</span><span style="color:#5fb3b3;">()}</span><span style="color:#99c794;">:/home/</span><span style="color:#5fb3b3;">{</span><span style="color:#cccece;">DOCKER_USER_NAME</span><span style="color:#5fb3b3;">}&#39;,
+
+      </span><span style="color:#5f6364;"># bash history file
+      </span><span style="color:#5fb3b3;">&#39;</span><span style="color:#99c794;">-v</span><span style="color:#5fb3b3;">&#39;, </span><span style="color:#c594c5;">f</span><span style="color:#5fb3b3;">&#39;{</span><span style="color:#cccece;">dirpath</span><span style="color:#5fb3b3;">}</span><span style="color:#99c794;">/.history/docker_bash_history:/</span><span style="color:#5fb3b3;">{</span><span style="color:#cccece;">dk_home</span><span style="color:#5fb3b3;">}</span><span style="color:#99c794;">/.bash_history</span><span style="color:#5fb3b3;">&#39;,
+      </span><span style="color:#cccece;">DOCKER_IMG_NAME</span><span style="color:#5fb3b3;">,
+   ]
+   </span><span style="color:#6699cc;">os</span><span style="color:#5fb3b3;">.</span><span style="color:#6699cc;">system</span><span style="color:#5fb3b3;">(&#39; &#39;.</span><span style="color:#6699cc;">join</span><span style="color:#5fb3b3;">(</span><span style="color:#6699cc;">docker_options</span><span style="color:#5fb3b3;">))
+
+</span><span style="color:#c594c5;">if </span><span style="color:#cccece;">__name__ </span><span style="color:#5fb3b3;">== &quot;</span><span style="color:#99c794;">__main__</span><span style="color:#5fb3b3;">&quot;:
+  </span><span style="color:#6699cc;">main</span><span style="color:#5fb3b3;">()
+</span></code></pre>
+<p><code>./activate_docker.py</code> 的主要用處有幾個:
++ 使用 docker volume 將當前目錄對應到使用者家目錄下
++ 將使用者身份對應到系統內部
++ 保存必要的指令輸入紀錄，讓你在進出 docker 環境時還能快速搜尋過去歷史
++ 避免重複呼叫 <code>./activate_docker.py</code> 來遞迴進入 docker 環境</p>
+<p>大部分的程式碼其實並不難，但你可能會比較在意我們是如何判斷使用者已經進入環境了的。也就是 <code>STATUS_DOCKER_ACTIVATED</code> 這個變數到底是從哪裡冒出來的呢？</p>
+<p>回頭看看 Dockerfile 就能找到了！</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Dockerfile" data-lang="Dockerfile"><span style="color:#5f6364;"># indicate we are inside docker
+</span><span style="color:#cccece;">ENV STATUS_DOCKER_ACTIVATED 1
+</span></code></pre>
+<p>我們使用 ENV 指令在系統環境中直接設置一個環境變數，這樣做的目的是避免對 docker 不熟悉的學生誤觸指令，能省去新手學生掉入不知名 bug 的時間。</p>
+<p>好的，接下來就是 docker image 的進入點 : <code>entrypoint.sh</code></p>
+<h2 id="entrypoint-sh">entrypoint.sh</h2>
+<p>這份的原始碼大部分是從 denibertovic 的<a href="https://denibertovic.com/posts/handling-permissions-with-docker-volumes/">文章</a> 中所修改而成。
+我會大概介紹一下他在做什麼，還有我做了哪些修改。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-bash" data-lang="bash"><span style="color:#5f6364;">#!/bin/bash
+
+# reference : https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
+
+</span><span style="color:#cccece;">USER_ID</span><span style="color:#5fb3b3;">=${</span><span style="color:#cccece;">LOCAL_USER_ID</span><span style="color:#5fb3b3;">:-</span><span style="color:#99c794;">9001</span><span style="color:#5fb3b3;">}
+</span><span style="color:#cccece;">USER_GID</span><span style="color:#5fb3b3;">=${</span><span style="color:#cccece;">LOCAL_USER_GID</span><span style="color:#5fb3b3;">:-</span><span style="color:#99c794;">9001</span><span style="color:#5fb3b3;">}
+
+</span><span style="color:#cccece;">USER_NAME</span><span style="color:#5fb3b3;">=`</span><span style="color:#6699cc;">echo </span><span style="color:#5fb3b3;">$</span><span style="color:#cccece;">DOCKER_USERNAME_PASSIN</span><span style="color:#5fb3b3;">`
+</span><span style="color:#cccece;">GROUP_NAME</span><span style="color:#5fb3b3;">=`</span><span style="color:#6699cc;">echo </span><span style="color:#5fb3b3;">$</span><span style="color:#cccece;">DOCKER_GROUPNAME_PASSIN</span><span style="color:#5fb3b3;">`
+</span><span style="color:#cccece;">HOMEDIR</span><span style="color:#5fb3b3;">=`</span><span style="color:#6699cc;">echo </span><span style="color:#5fb3b3;">$</span><span style="color:#cccece;">DOCKER_HOMEDIR_PASSIN</span><span style="color:#5fb3b3;">`
+
+</span><span style="color:#6699cc;">groupadd</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">g </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">USER_GID</span><span style="color:#5fb3b3;">} ${</span><span style="color:#cccece;">GROUP_NAME</span><span style="color:#5fb3b3;">}
+</span><span style="color:#c594c5;">if </span><span style="color:#6699cc;">[[ </span><span style="color:#5fb3b3;">-</span><span style="color:#f99157;">d </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">HOMEDIR</span><span style="color:#5fb3b3;">} </span><span style="color:#6699cc;">]]
+</span><span style="color:#c594c5;">then
+    </span><span style="color:#5f6364;"># supress home already exist warning
+    </span><span style="color:#6699cc;">useradd</span><span style="color:#5fb3b3;"> --</span><span style="color:#f99157;">shell</span><span style="color:#6699cc;"> /bin/bash</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">u </span><span style="color:#5fb3b3;">$</span><span style="color:#cccece;">USER_ID</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">o</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">c </span><span style="color:#5fb3b3;">&quot;&quot; -</span><span style="color:#f99157;">m </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">USER_NAME</span><span style="color:#5fb3b3;">}  </span><span style="color:#f99157;">2</span><span style="color:#5fb3b3;">&gt;</span><span style="color:#6699cc;">/dev/null
+</span><span style="color:#c594c5;">else
+    </span><span style="color:#6699cc;">useradd</span><span style="color:#5fb3b3;"> --</span><span style="color:#f99157;">shell</span><span style="color:#6699cc;"> /bin/bash</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">u </span><span style="color:#5fb3b3;">$</span><span style="color:#cccece;">USER_ID</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">o</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">c </span><span style="color:#5fb3b3;">&quot;&quot; -</span><span style="color:#f99157;">m </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">USER_NAME</span><span style="color:#5fb3b3;">}
+</span><span style="color:#c594c5;">fi
+</span><span style="color:#6699cc;">usermod</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">g </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">GROUP_NAME</span><span style="color:#5fb3b3;">} ${</span><span style="color:#cccece;">USER_NAME</span><span style="color:#5fb3b3;">}
+
+</span><span style="color:#6699cc;">cd </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">HOMEDIR</span><span style="color:#5fb3b3;">}
+</span><span style="color:#6699cc;">exec /usr/sbin/gosu </span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">USER_NAME</span><span style="color:#5fb3b3;">} &quot;$</span><span style="color:#ec5f67;">@</span><span style="color:#5fb3b3;">&quot;
+</span></code></pre>
+<p>這份程式碼的目的就是在系統中使用 host system 的 uid 跟gid來即時新增使用者。
+唯一不同的是，我使用了 <code>DOCKER_USERNAME_PASSIN</code>, <code>DOCKER_GROUPNAME_PASSIN</code>, <code>DOCKER_HOMEDIR_PASSIN</code> 三個變數。
+這些環境變數一樣也是從 Dockerfile 中設置而來。而 Dockerfile 也只是擔任轉介 Makefile 中的內容而已。</p>
+<p>最後，我們可以看看 activate_docker.sh。</p>
+<h2 id="activate-docker-sh">activate_docker.sh</h2>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Bash" data-lang="Bash"><span style="color:#cccece;">#! /bin/bash
+make activate
+</span></code></pre>
+<p>只有兩行。</p>
+<h3 id="liang-xing-de-bei-hou-yong-yi">兩行的背後用意</h3>
+<p>其實 <code>activate_docker.sh</code> 的唯一目的就只是呼叫 <code>make activate</code> 指令，而 <code>make activate</code> 也就只是呼叫 <code>activae_docker.py</code> 而以，一個簡單的想法是，為什麼不要直接把 <code>activate_docker.py</code> 設定成可以直接呼叫，然後就直接呼叫 <code>activate_docker.py</code> 就好了呢？</p>
+<p>第一也是最重要的原因：方便管理 - 我們為了把變數共享在 makefile 中，讓開發者在未來想修改時只修改 makefile 的單一變數就能完成。
+第二點是 <code>make activate</code> 指令本身難以用 tab 自動補全，只要不是 fish shell 用戶基本上就<strong>一定需要打字</strong>，使用另外一個 shell script 讓我們可以只輸入 <code>./&lt;tab&gt;</code> 就完成效果。 這樣在使用的體驗上會更加流暢。</p>
+<p>第三點則跟專案架構有關 : 我們為了課程作業的新手導向需求，故意修改過專案架構，所以跟這裏擺出來的畫面有些不同。
+在課程的作業設計之中，我採取把對於完成作業不需要知道的知識隱藏起來，降低新手們的認知負擔。</p>
+<h3 id="tui-jian-de-zhuan-an-jia-gou-mo-shi">推薦的專案架構模式</h3>
+<p>同上所述，如果你想把專案打包給新手使用，你可以嘗試把大部分跟 docker 有關的程式碼都藏進另一個資料夾中(/docker)，專案主目錄中只留下 <code>activae_docker.sh</code>。</p>
+<p>在這裡把我設計的作業資料夾架構放在這裏給你參考。</p>
+<pre style="background-color:#2b2c2f;">
+<code><span style="color:#cccece;">compiler-hw1/
+├── Makefile
+├── activate_docker.sh
+├── docker
+│   ├── Dockerfile
+│   ├── Makefile
+│   ├── activate_docker.py
+│   └── entrypoint.sh
+├── src
+│   └── main.cpp
+└── test
+    ├── test.py
+    └── testcase
+        ├── answer
+        └── output
+</span></code></pre><h2 id="geng-duo-you-hua-jian-yi">更多優化建議</h2>
+<p>在理解完基本的架構之後，這裡提供一些想法來讓你將 docker 應用到你的開發環境中。</p>
+<p>如果你想縮小 docker image 編譯出的大小，我會考慮使用 Multistage build 並盡可能在 dockerfile 中減少 <code>RUN</code> 指令的使用次數。（在這份 dockerfile 中為了清楚並沒有這麼做）。甚至是採用 alpine linux 當作基本發行版。只不過要注意的是， alpine linux 因為只是在系統功能上實踐最基本介面，這麼做的後果有可能會拖慢你開發環境系統的效能。</p>
+<p>如果你想要使用不同的 shell，你會需要自己理解這些 shell 有哪些 history file 並自行修改 <code>activate_docker.py</code> 來掛載到目標 container 之中。</p>
+<h2 id="tui-jian-yue-du-yu-can-kao">推薦閱讀與參考</h2>
+<p>如果你也想要用 docker 當作自己的開發環境，這裏推薦我在設計時讀過的一些文章以及 dockerfile 參考，讀完之後相信會對你很有幫助。</p>
+<ol>
+<li>
+<p>docker container 身份對應</p>
+<ul>
+<li><a href="https://jtreminio.com/blog/running-docker-containers-as-current-host-user/">Running Docker Containers as Current Host User</a></li>
+<li><a href="https://denibertovic.com/posts/handling-permissions-with-docker-volumes/">Handling-permissions-with-docker-volumes</a></li>
+</ul>
+</li>
+<li>
+<p>推薦的 makefile 以及 dockerfile</p>
+<ul>
+<li><a href="https://github.com/marmelab/make-docker-command/blob/master/Makefile">marmelab/make-docker-command</a></li>
+</ul>
+</li>
+</ol>
+<h2 id="jie-yu">結語</h2>
+<p>分享完畢，有任何想法的話也希望你可以到 <a href="https://github.com/ianre657/setup-develop-env-with-docker">Github</a> 上回饋給我，又或是寫 email 告知
+我們下次再見~</p>
+
+          </div>
+        </article>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+
+   
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <nav class="level">
+          
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;libos-and-unikernels&#x2F;"
+            >
+              <span class="icon mr-2">
+                <i class="fas fa-arrow-circle-left"></i>
+              </span>
+              An overview of LibraryOS and Unikernels
+            </a>
+          </div>
+           
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2020-compiler-redesign-in-nctu&#x2F;"
+            >
+              Github 編譯器課程改革 - 我在交大資工<span class="icon ml-2">
+                <i class="fas fa-arrow-circle-right"></i>
+              </span>
+            </a>
+          </div>
+            
+        </nav>
+      </div>
+    </div>
+  </div>
+</section>
+ 
+
+    
+
+  <footer class="py-4">
+  <p class="has-text-centered">© 2018 Ian Chen</p>
+</footer>
+
+  <script src="https:&#x2F;&#x2F;ianchen.tw&#x2F;js&#x2F;site.js"></script>
+    
+
+</body>
+
+</html>

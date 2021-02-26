@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <meta content="#ffffff" name="theme-color" />
+  <meta content="#da532c" name="msapplication-TileColor" />
+
+  
+<link href='&#x2F;icons&#x2F;site.webmanifest' rel="manifest" />
+
+
+
+<link href='&#x2F;icons&#x2F;favicon-16x16.png' rel="icon" sizes="16x16" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;favicon-32x32.png' rel="icon" sizes="32x32" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;apple-touch-icon.png' rel="apple-touch-icon" sizes="180x180" />
+
+  
+
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="preload" as="style" />
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="stylesheet" />
+
+
+  
+  
+
+  <title>
+     IanChen |  ros+python3設定 
+  </title>
+
+  
+  <script src="https://kit.fontawesome.com/ab28266223.js" crossorigin="anonymous"></script>
+
+  
+  
+  
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-116173804-1"></script>
+  <script type="text/javascript">
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "UA-116173804-1");
+  </script>
+
+
+</head>
+
+<body class="">
+  <nav id="navbar" aria-label="section navigation" class="navbar" role="navigation">
+<div class="container">
+    <div class="navbar-brand">
+    <a id="navbar-title" class="navbar-item has-text-weight-bold" href="/about">IanChen</a>
+    <a aria-expanded="false" aria-label="menu" class="navbar-burger burger" data-target="navMenu" role="button">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+    </a>
+    </div>
+    <div class="navbar-menu" id="navMenu">
+        <div class="navbar-start">
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;about'>
+                    About
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;posts'>
+                    Posts
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags'>
+                    Tags
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;archives'>
+                    Archives
+                </a>
+            
+        </div>
+        <div class="navbar-end has-text-centered">
+            <a class="navbar-item" darkmode-switch-button id="dark-mode" title="Switch to dark theme">
+            <span class="icon">
+                <i class="fas fa-adjust"></i>
+            </span>
+            </a>
+        </div>
+    </div>
+</div>
+</nav>
+
+  
+  
+
+  
+<section class="section pb-0">
+  <div class="container">
+    <div class="columns">
+      <div class="column is-6 is-offset-3">
+        <article>
+          <h1 class="title"> ros+python3設定</h1>
+          <h2 class="subtitle">ros 設置 python3 版本環境的流程</h2>
+          <div class="columns is-multiline is-gapless">
+            <div class="column is-8">
+              
+  <p class="theme-color-dimmed">
+    <a href="/about">
+      
+        <img class="avatar" src="&#x2F;images&#x2F;avatar.jpg">
+      
+    </a>
+    
+      <a href="/about">
+        <span class='author-name'>
+          奕安
+        </span>
+      </a>
+      published on
+    
+    <span class="icon">
+      <i class="far fa-calendar-alt"></i>
+    </span>
+    <time datetime='2018-05-27'>May 27, 2018</time>
+  </p>
+
+            </div>
+            <div class="column is-4 has-text-right-desktop">
+              
+  <p class="has-text-grey">
+    <span class="icon">
+      <i class="far fa-clock"></i>
+    </span>
+    2 min,
+    <span class="icon">
+      <i class="fas fa-pencil-alt"></i>
+    </span>
+    261 words
+  </p>
+
+            </div>
+            <div class="column is-4">
+              
+            </div>
+            <div class="column is-8 has-text-right-desktop">
+               
+  <p>
+    <span class="has-text-weight-normal">Tags:</span>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;python&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        python
+      </a>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;dev&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        Dev
+      </a>
+    
+  </p>
+ 
+            </div>
+          </div>
+          <div class="content has-text-justified">
+            <p>Ubuntu 16.04 上面的 ROS lunar 預設使用 <code>python2.7</code></p>
+<span id="continue-reading"></span><h2 id="an-zhuang-pyenv">安裝pyenv</h2>
+<p>使用pyenv來控管系統上的不同 python 版本是目前 python 社群的發展趨勢</p>
+<p><a href="https://github.com/pyenv/pyenv">pyenv安裝教學</a></p>
+<p>安裝 python3.6.5</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-lang" data-lang="lang"><span style="color:#cccece;">pyenv install 3.6.5
+pyenv global 3.6.5
+</span></code></pre><h2 id="geng-gai-yu-she-de-shellbian-shu-pythonpath">更改預設的shell變數 : $PYTHONPATH</h2>
+<p>ros主要藉由 <code>$PYTHONPATH</code> 變數來獲得系統上有關python的資訊
+把下面這行放到 <code>~/.bashrc</code> 的檔案尾端</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-shell" data-lang="shell"><span style="color:#cccece;">export PYTHONPATH=$(pyenv root)/shims:$PYTHONPATH
+</span></code></pre>
+<p>更改之後會讓 ros 預設先讀取目前設定的 python 版本
+如果只做完這步驟就使用 catkin_make 來編譯的話八成會跳出找不到套件的問題</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-python" data-lang="python"><span style="color:#6699cc;">Traceback </span><span style="color:#5fb3b3;">(</span><span style="color:#6699cc;">most recent call last</span><span style="color:#5fb3b3;">):
+  </span><span style="color:#cccece;">File </span><span style="color:#5fb3b3;">&quot;</span><span style="color:#99c794;">/opt/ros/lunar/share/gencpp/cmake/../../../lib/gencpp/gen_cpp.py</span><span style="color:#5fb3b3;">&quot;</span><span style="color:#cccece;">, line </span><span style="color:#f99157;">41</span><span style="color:#cccece;">, </span><span style="color:#5fb3b3;">in &lt;</span><span style="color:#cccece;">module</span><span style="color:#5fb3b3;">&gt;
+    </span><span style="color:#c594c5;">import </span><span style="color:#cccece;">genmsg</span><span style="color:#5fb3b3;">.</span><span style="color:#cccece;">template_tools
+  File </span><span style="color:#5fb3b3;">&quot;</span><span style="color:#99c794;">/opt/ros/lunar/lib/python2.7/dist-packages/genmsg/template_tools.py</span><span style="color:#5fb3b3;">&quot;</span><span style="color:#cccece;">, line </span><span style="color:#f99157;">39</span><span style="color:#cccece;">, </span><span style="color:#5fb3b3;">in &lt;</span><span style="color:#cccece;">module</span><span style="color:#5fb3b3;">&gt;
+    </span><span style="color:#c594c5;">import </span><span style="color:#cccece;">em
+ModuleNotFoundError</span><span style="color:#5fb3b3;">: </span><span style="color:#cccece;">No module named </span><span style="color:#5fb3b3;">&#39;</span><span style="color:#99c794;">em</span><span style="color:#5fb3b3;">&#39;
+
+</span></code></pre><h2 id="shou-dong-an-zhuang-xiang-yi-xing-tao-jian">手動安裝相依性套件</h2>
+<p>會需要做到這步驟目前猜測是 ubuntu 的套件 <code>python-catkin-pkg</code> 跟 <code>pyenv</code> 兩者之間的整合性並不太好。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-shell" data-lang="shell"><span style="color:#cccece;">pyenv global 3.6.5
+pip install -U rosdep rosinstall_generator wstool rosinstall six vcstools empy
+</span></code></pre>
+          </div>
+        </article>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+
+   
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <nav class="level">
+          
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2018-becoming-adult&#x2F;"
+            >
+              <span class="icon mr-2">
+                <i class="fas fa-arrow-circle-left"></i>
+              </span>
+              生活小記-談談人的轉變
+            </a>
+          </div>
+           
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;package-and-module-in-python&#x2F;"
+            >
+              Python 的 package 與 module<span class="icon ml-2">
+                <i class="fas fa-arrow-circle-right"></i>
+              </span>
+            </a>
+          </div>
+            
+        </nav>
+      </div>
+    </div>
+  </div>
+</section>
+ 
+
+    
+
+  <footer class="py-4">
+  <p class="has-text-centered">© 2018 Ian Chen</p>
+</footer>
+
+  <script src="https:&#x2F;&#x2F;ianchen.tw&#x2F;js&#x2F;site.js"></script>
+    
+
+</body>
+
+</html>

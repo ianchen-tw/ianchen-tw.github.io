@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <meta content="#ffffff" name="theme-color" />
+  <meta content="#da532c" name="msapplication-TileColor" />
+
+  
+<link href='&#x2F;icons&#x2F;site.webmanifest' rel="manifest" />
+
+
+
+<link href='&#x2F;icons&#x2F;favicon-16x16.png' rel="icon" sizes="16x16" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;favicon-32x32.png' rel="icon" sizes="32x32" type="image/png" />
+
+
+<link href='&#x2F;icons&#x2F;apple-touch-icon.png' rel="apple-touch-icon" sizes="180x180" />
+
+  
+
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="preload" as="style" />
+<link href='https:&#x2F;&#x2F;ianchen.tw&#x2F;main.css' rel="stylesheet" />
+
+
+  
+  
+
+  <title>
+     IanChen | 自己編譯vim 
+  </title>
+
+  
+  <script src="https://kit.fontawesome.com/ab28266223.js" crossorigin="anonymous"></script>
+
+  
+  
+  
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-116173804-1"></script>
+  <script type="text/javascript">
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "UA-116173804-1");
+  </script>
+
+
+</head>
+
+<body class="">
+  <nav id="navbar" aria-label="section navigation" class="navbar" role="navigation">
+<div class="container">
+    <div class="navbar-brand">
+    <a id="navbar-title" class="navbar-item has-text-weight-bold" href="/about">IanChen</a>
+    <a aria-expanded="false" aria-label="menu" class="navbar-burger burger" data-target="navMenu" role="button">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+    </a>
+    </div>
+    <div class="navbar-menu" id="navMenu">
+        <div class="navbar-start">
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;about'>
+                    About
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;posts'>
+                    Posts
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags'>
+                    Tags
+                </a>
+            
+                <a class="navbar-item" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;archives'>
+                    Archives
+                </a>
+            
+        </div>
+        <div class="navbar-end has-text-centered">
+            <a class="navbar-item" darkmode-switch-button id="dark-mode" title="Switch to dark theme">
+            <span class="icon">
+                <i class="fas fa-adjust"></i>
+            </span>
+            </a>
+        </div>
+    </div>
+</div>
+</nav>
+
+  
+  
+
+  
+<section class="section pb-0">
+  <div class="container">
+    <div class="columns">
+      <div class="column is-6 is-offset-3">
+        <article>
+          <h1 class="title">自己編譯vim</h1>
+          <h2 class="subtitle">compile vim into user folder</h2>
+          <div class="columns is-multiline is-gapless">
+            <div class="column is-8">
+              
+  <p class="theme-color-dimmed">
+    <a href="/about">
+      
+        <img class="avatar" src="&#x2F;images&#x2F;avatar.jpg">
+      
+    </a>
+    
+      <a href="/about">
+        <span class='author-name'>
+          奕安
+        </span>
+      </a>
+      published on
+    
+    <span class="icon">
+      <i class="far fa-calendar-alt"></i>
+    </span>
+    <time datetime='2018-01-29'>January 29, 2018</time>
+  </p>
+
+            </div>
+            <div class="column is-4 has-text-right-desktop">
+              
+  <p class="has-text-grey">
+    <span class="icon">
+      <i class="far fa-clock"></i>
+    </span>
+    10 min,
+    <span class="icon">
+      <i class="fas fa-pencil-alt"></i>
+    </span>
+    1817 words
+  </p>
+
+            </div>
+            <div class="column is-4">
+              
+            </div>
+            <div class="column is-8 has-text-right-desktop">
+               
+  <p>
+    <span class="has-text-weight-normal">Tags:</span>
+    
+      <a class="link" href='https:&#x2F;&#x2F;ianchen.tw&#x2F;tags&#x2F;dev&#x2F;'>
+        <span class="icon is-small">
+          <i class="fas fa-tag fa-xs"></i>
+        </span>
+        Dev
+      </a>
+    
+  </p>
+ 
+            </div>
+          </div>
+          <div class="content has-text-justified">
+            <h2 id="qian-yan">前言</h2>
+<p>在NCTU+也待一段時間了，開發主機上的vim不知道為什麼總是在讀取自己的vimrc時會有錯誤訊息，無法使用，還有我用的插件(Neocomplete)需要vim有<code>lua</code> support，而系統上的沒有，我必須找個辦法讓vim支援lua。
+編譯vim其實不是什麼困難的事情，但對於沒有太多linux系統概念的新手了來說，觀念上還是存在一些落差需要彌補。所以這篇文章的目標是寫到讓當初的自己看得懂。並能讓讀者能夠知道自己在做什麼。還有如果需要更多編譯參數的話也知道該怎麼設定。</p>
+<h2 id="wei-shi-mo-yao-zi-xing-bian-yi-vim">為什麼要自行編譯vim</h2>
+<p>這個小標題應該可以改成:「為什麼要自行編譯xxx?」，而xxx泛指所有類Unix上的套件服務。我大概想了幾個可能的情況:</p>
+<ol>
+<li>系統的vim不支援想要的功能，但又沒有root權限，只能讀寫自己的家目錄QQ</li>
+<li>系統套件管理程式支援的選項太少，例: Ubuntu 上的 <code>apt-get</code>無法指定套件安裝的目錄，以及更細節的編譯內容(讓vim 有 lua support)。
+(OSX,Arch linux的使用者應該就沒有這個問題)</li>
+<li>想在不要覆蓋系統版本vim的情況下用到新版的Vim。</li>
+</ol>
+<p>我的需求大概就是三種情況下的總和。說完之後就快開始吧&lt;3</p>
+<h2 id="0-huan-jing-shuo-ming">0. 環境說明</h2>
+<ul>
+<li>系統 Ubuntu 12.04.5 LTS</li>
+<li>我的家目錄: <code>/home/ianre657</code></li>
+</ul>
+<p>之後如果寫到 <code>/home/ianre657</code>的話，要自行代換成你的家目錄。</p>
+<h2 id="1-jian-cha-vim-zi-xun">1. 檢查 vim 資訊</h2>
+<p>在Ubuntu上安裝Vim插件NeoComplete的時候，作者寫到vim 需要支援lua。
+所以就先使用<code>vim --verison</code>指令檢查一下目前vim的詳細資料。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-shell" data-lang="shell"><span style="color:#cccece;">$ vim --version
+VIM - Vi IMproved 8.0 (2016 Sep 12, compiled Jan 27 2018 22:07:32)
+引入修正: 1-1432
+編譯者:ianre657@PLUS
+超強版本 使用 GTK2 圖型界面。
+ 目前可使用(+)與不可使用(-)的模組列表:
++acl               +farsi             +mouse_sgr         -tag_any_white
++arabic            +file_in_path      -mouse_sysmouse    -tcl
++autocmd           +find_in_path      +mouse_urxvt       +termguicolors
+-autoservername    +float             +mouse_xterm       +terminal
++balloon_eval      +folding           +multi_byte        +terminfo
++balloon_eval_term -footer            +multi_lang        +termresponse
++browse            +fork()            -mzscheme          +textobjects
+++builtin_terms    +gettext           +netbeans_intg     +timers
++byte_offset       -hangul_input      +num64             +title
++channel           +iconv             +packages          +toolbar
++cindent           +insert_expand     +path_extra        +user_commands
++clientserver      +job               -perl              +vertsplit
++clipboard         +jumplist          +persistent_undo   +virtualedit
++cmdline_compl     +keymap            +postscript        +visual
++cmdline_hist      +lambda            +printer           +visualextra
++cmdline_info      +langmap           +profile           +viminfo
++comments          +libcall           +python            +vreplace
++conceal           +linebreak         -python3           +wildignore
++cryptv            +lispindent        +quickfix          +wildmenu
++cscope            +listcmds          +reltime           +windows
++cursorbind        +localmap          +rightleft         +writebackup
++cursorshape       +lua               +ruby              +X11
++dialog_con_gui    +menu              +scrollbind        -xfontset
++diff              +mksession         +signs             +xim
++digraphs          +modify_fname      +smartindent       +xpm
++dnd               +mouse             +startuptime       +xsmp_interact
+-ebcdic            +mouseshape        +statusline        +xterm_clipboard
++emacs_tags        +mouse_dec         -sun_workshop      -xterm_save
++eval              -mouse_gpm         +syntax
++ex_extra          -mouse_jsbterm     +tag_binary
++extra_search      +mouse_netterm     +tag_old_static
+</span></code></pre>
+<p>在選項中的 +lua 代表著目前的vim是支援lua語言的。
+雖然說我的已經支援了，但為了這篇文章還是重新編譯一次。</p>
+<h2 id="2-xia-zai-vimzhuan-an-yuan-shi-ma">2. 下載Vim專案原始碼</h2>
+<p>Vim是開源軟體，所有的程式碼都放在網路上供人觀看。照理來說只要拿到原始程式碼之後就一定能產生出一個完全客製化的Vim程式。
+而git 是一個版本管理程式，附帶的<code>clone</code>參數會從後面的網址中載入網路上對應的另一個專案。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-shell" data-lang="shell"><span style="color:#cccece;">$ git clone https://github.com/vim/vim.git
+$ cd vim
+</span></code></pre><h2 id="3-she-ding-makefi-le-bian-yi-can-shu">3. 設定 Makefile 編譯參數</h2>
+<p><code>gnu make</code>是一個在Linux存在很久，十分穩定的專案，最常見的用途是自動化編譯。
+在一個大型專案中，程式為了方便管理一定會將原始碼依照功能拆分成不同檔案來編寫。<code>make</code>程式會透過 <code>Makefile</code>檔案中的設定來決定目標檔案的相關性以及編譯的順序。</p>
+<p>在 vim資料夾中還有另外一個很重要的程式: <code>configure</code>，他的目的是用來輔助設定。我們透過<code>configure</code>程式來修改<code>Makefile</code>的編譯參數，讓編譯完的程式有更多的功能。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-shell" data-lang="shell"><span style="color:#cccece;">$ ./configure --with-features=huge \
+            --enable-multibyte \
+            --enable-luainterp=yes \
+            --enable-fail-if-missing \
+            --prefix=/home/ianre657
+</span></code></pre>
+<p>記得修改<code>--prefix=/home/ianre657</code> 成你想要安裝的目錄名稱。
+上面的這些參數其實都在/vim/src/Makefile的註解中有說明。(連 <code>configure</code> 程式的作用都有寫到)，所以如果需要更多參數的話可以往Makefile裡面尋找。
+<code>--enable-fail-if-missing </code>參數最好加上去，這樣一來如果中途設定有出錯時程式會自動停下來，比較好debug。</p>
+<h2 id="3-5-an-zhuang-lua-mei-you-cai-xu-yao-zhuang">3.5 安裝lua (沒有才需要裝)</h2>
+<p>要讓vim支援lua之前，電腦上至少也要有lua語言。
+要確認一下的話可以使用<code>lua -v</code>來查看版本資訊</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-shell" data-lang="shell"><span style="color:#cccece;">$ lua -v
+Lua 5.2.4  Copyright (C) 1994-2015 Lua.org, PUC-Rio
+</span></code></pre>
+<p>如果有跳出以上的資訊就可以直接跳<a href="https://ianchen.tw/posts/compile-vim-yourself/4-%E7%B7%A8%E8%AD%AF">第四步</a>了。</p>
+<p>如果系統沒有的話就又要自己在家目錄在裝一個可執行的lua了QQ。
+(因為我沒有root權限無法更新)
+</p>
+<p><a href="https://www.lua.org/download.html">Lua官方資料</a></p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-sh" data-lang="sh"><span style="color:#6699cc;">curl</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">R</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">O</span><span style="color:#6699cc;"> http://www.lua.org/ftp/lua-5.3.4.tar.gz
+tar zxf lua-5.3.4.tar.gz
+cd lua-5.3.4
+</span></code></pre>
+<p>這時後要注意，如果直接使用 <code>make</code> 編譯的話預設會裝在系統資料夾，所以要修改一下Makefile，把INSTALL_TOP修改成自己的家目錄。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-Makefile" data-lang="Makefile"><span style="color:#cccece;">INSTALL_TOP</span><span style="color:#5fb3b3;">= </span><span style="color:#99c794;">/home/ianre657
+</span></code></pre>
+<p>(lua的專案資料夾跟vim不同，沒有configure這個輔助設定的程式，要自己去Makefile下面更改參數)
+用完之後下一下make linux test 就可以了 (linux 會依據不同系統有不同的參數，要自己查一下)</p>
+<p>試看看是否裝成功。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-sh" data-lang="sh"><span style="color:#6699cc;">$ lua</span><span style="color:#5fb3b3;"> -</span><span style="color:#f99157;">v</span><span style="color:#6699cc;">
+Lua 5.2.4  Copyright (C</span><span style="color:#cccece;">) </span><span style="color:#6699cc;">1994-2015 Lua.org, PUC-Rio
+</span></code></pre>
+<p>在lua成功安裝之後，到vim的目錄下重新跑一下 <code>configure</code> 程式，不過這次要修改一下 lua的目錄:
+新增參數:<code>--with-lua-prefix=/home/ianre657</code>，其他的參數都跟之前一樣。</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-sh" data-lang="sh"><span style="color:#6699cc;">./configure</span><span style="color:#5fb3b3;"> --</span><span style="color:#f99157;">with-features</span><span style="color:#5fb3b3;">=</span><span style="color:#6699cc;">huge </span><span style="color:#5fb3b3;">\
+            --</span><span style="color:#f99157;">enable-multibyte </span><span style="color:#5fb3b3;">\
+            --</span><span style="color:#f99157;">enable-luainterp</span><span style="color:#5fb3b3;">=</span><span style="color:#6699cc;">yes </span><span style="color:#5fb3b3;">\
+            --</span><span style="color:#f99157;">enable-fail-if-missing </span><span style="color:#5fb3b3;">\
+            --</span><span style="color:#f99157;">with-lua-prefix</span><span style="color:#5fb3b3;">=</span><span style="color:#6699cc;">/home/ianre657 </span><span style="color:#5fb3b3;">\
+            --</span><span style="color:#f99157;">prefix</span><span style="color:#5fb3b3;">=</span><span style="color:#6699cc;">/home/ianre657
+</span></code></pre><h2 id="4-bian-yi">4. 編譯</h2>
+<p>到vim的資料夾下，先下<code>make distclean</code>(清除之前的檔案)
+再用<code>make install clean</code>安裝程式並刪除暫存檔。</p>
+<pre style="background-color:#2b2c2f;">
+<code><span style="color:#cccece;">make distclean
+make install clean
+</span></code></pre>
+<p>安裝完之後用以下指令看看是否成功了</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-sh" data-lang="sh"><span style="color:#6699cc;">cd </span><span style="color:#ec5f67;">~
+</span><span style="color:#6699cc;">./bin/vim</span><span style="color:#5fb3b3;"> --</span><span style="color:#f99157;">version
+</span></code></pre><h2 id="5-xiu-gai-shi-yong-zhe-pathbian-shu">5. 修改使用者<code>$PATH</code>變數</h2>
+<p>PATH環境變數決定我們打下指令時系統尋找程式的路徑順序。使用 <code>echo $PATH</code>來查看目前的PATH變數。變數中用<code>:</code>來作為不同路徑的分隔。
+以 <code>/usr/local/sbin:/usr/local/bin</code>為例，在下<code>vim</code>時，系統會先查看<code>/usr/local/sbin</code>有沒有叫做vim的程式，如果沒有的話之後才會繼續<code>/usr/local/bin</code>資料夾。</p>
+<p>我們的目標是讓系統預設先查看我們自己家目錄下的 <code>bin</code>資料夾之後，才會查看系統預設的資料夾，這樣就可以達到覆蓋系統vim 的效果了。
+把以下這行到家目錄下的 <code>~/.bashrc</code>或是 <code>~/.bash_profile</code>。(看你的系統)
+</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-sh" data-lang="sh"><span style="color:#5f6364;"># .bash_profile
+</span><span style="color:#c594c5;">export </span><span style="color:#cccece;">PATH</span><span style="color:#5fb3b3;">=&quot;${</span><span style="color:#cccece;">HOME</span><span style="color:#5fb3b3;">}</span><span style="color:#99c794;">/bin:</span><span style="color:#5fb3b3;">${</span><span style="color:#cccece;">PATH</span><span style="color:#5fb3b3;">}&quot;
+</span></code></pre>
+<p><code>~/.bash_profile</code>是每次登入是bash shell會預設載入的腳本檔案。這樣做的話就可以在每次使用時都使用自己編譯的程式了。
+而這裡看到的${HOME} 變數在系統上會被翻譯為當前使用者的家目錄(home directory)拉</p>
+<p>用以下的語言來測試一下是否真的成功了，成功的話就收工拉&lt;3</p>
+<pre style="background-color:#2b2c2f;">
+<code class="language-sh" data-lang="sh"><span style="color:#6699cc;">source </span><span style="color:#ec5f67;">~</span><span style="color:#6699cc;">/.bash_profile
+vim</span><span style="color:#5fb3b3;"> --</span><span style="color:#f99157;">version
+</span></code></pre>
+          </div>
+        </article>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+
+   
+<section class="section">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <nav class="level">
+          
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2018-lets-talk-about-this-blog&#x2F;"
+            >
+              <span class="icon mr-2">
+                <i class="fas fa-arrow-circle-left"></i>
+              </span>
+              談談這個部落格
+            </a>
+          </div>
+           
+          <div class="level-item has-text-centered">
+            <a
+              class="button is-outlined"
+              href="https:&#x2F;&#x2F;ianchen.tw&#x2F;posts&#x2F;2016-transfer-to-cs&#x2F;"
+            >
+              交大資工轉系紀錄<span class="icon ml-2">
+                <i class="fas fa-arrow-circle-right"></i>
+              </span>
+            </a>
+          </div>
+            
+        </nav>
+      </div>
+    </div>
+  </div>
+</section>
+ 
+
+    
+
+  <footer class="py-4">
+  <p class="has-text-centered">© 2018 Ian Chen</p>
+</footer>
+
+  <script src="https:&#x2F;&#x2F;ianchen.tw&#x2F;js&#x2F;site.js"></script>
+    
+
+</body>
+
+</html>
